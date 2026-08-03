@@ -1,0 +1,7 @@
+.next
+node_modules
+pnpm-lock.yaml
+app/generated
+.agents
+agent
+pnpm-workspace.yaml
