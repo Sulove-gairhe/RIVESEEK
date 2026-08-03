@@ -1,167 +1,114 @@
-# riveseek
+# RIVESEEK
 
-Next.js starter with Tailwind CSS, `@solana/kit`, and an Anchor vault program example.
+RIVESEEK (working product name: **Grail**) is a Solana-powered collectible discovery and savings platform. It helps collectors find exact-match marketplace listings, compare total cost and seller signals, and reserve funds in an on-chain goal vault until a trustworthy match is affordable.
 
-## Getting Started
+> The MVP is an on-chain settlement proof of concept, not a second marketplace. Its internal marketplace demonstrates escrow → purchase → asset transfer with a small number of seeded assets; eBay remains the primary external marketplace.
 
-```shell
-npx -y create-solana-dapp@latest -t solana-foundation/templates/kit/riveseek
+## MVP focus
+
+The MVP prioritizes depth in the three highest-risk systems:
+
+1. **Exact-match engine** — turns messy marketplace titles into structured attributes and classifies listings with per-attribute confidence.
+2. **On-chain goal vault** — stores the authoritative goal balance and status on Solana, with an off-chain mirror for application queries.
+3. **eBay adapter** — imports Browse API search and item details through a shared marketplace-adapter contract.
+
+Supporting features are intentionally minimal: seeded catalogue data, wishlist and goal CRUD, a mock adapter, price snapshots with one chart, debounced notifications, basic seller-trust display, recurring contributions, and a 1–3 asset internal settlement demo.
+
+## Product principles
+
+- **Never guess an exact match.** Low-confidence listings are surfaced as `needs_review` rather than silently promoted.
+- **On-chain is authoritative.** Vault balance and goal status are read from Solana and reconciled into the database; stale mirrors are visibly marked.
+- **Human review is part of the MVP.** Collectors can confirm or reject uncertain listings for their own goal, while an internal review queue records corrections as labeled examples.
+- **External checkout stays external.** RIVESEEK redirects collectors to the source listing; eBay ordering, bidding, and checkout are out of scope.
+- **Keep integrations replaceable.** eBay, mock data, and the internal settlement adapter implement the same marketplace interface.
+
+## Exact-match pipeline
+
+Listings pass through a tiered pipeline:
+
+```text
+raw title
+   ↓
+cleanup (case, whitespace, emoji, abbreviations)
+   ↓
+structured extraction (regex + controlled vocabulary)
+   ↓
+fuzzy matching (catalogue names and sets)
+   ↓
+confidence scoring per required attribute
+   ├─ exact / flexible / alternative
+   └─ needs_review / rejected
 ```
 
-```shell
-npm install
-npm run setup   # Builds the Anchor program and generates the TypeScript client
-npm run dev
+Required attributes below their confidence threshold always route to `needs_review`. Evaluation uses roughly 50–100 curated titles, including emoji, typos, l33tspeak, wrong sets, wrong grades, and ungraded items. The target is to keep the `needs_review` rate around 25–30% or lower on the curated test set while reporting precision and recall honestly.
+
+## Architecture
+
+The application is planned as one TypeScript Next.js project deployed to Vercel. Frontend pages/components and backend API routes share the project. Neon/PostgreSQL stores catalogue data, listings, match results, price snapshots, notifications, and the off-chain goal mirror.
+
+```mermaid
+flowchart LR
+  UI[Next.js UI] --> API[Next.js API routes]
+  UI -->|connect and sign client-side| Wallet[Phantom wallet]
+  API --> Services[Goals · matching · prices · notifications]
+  Services <--> DB[(Neon PostgreSQL)]
+  Services --> Adapters[Marketplace adapter interface]
+  Adapters --> Ebay[eBay Browse API]
+  Adapters --> Mock[Mock / curated fallback data]
+  Adapters --> Internal[Internal settlement adapter]
+  Internal --> Chain[Solana Anchor program]
+  Wallet --> Chain
+  Cron[Vercel Cron] --> Refresh[Refresh listings]
+  Cron --> Reconcile[Reconcile vaults]
+  Cron --> Recurring[Recurring contributions]
+  Refresh --> Adapters
+  Refresh --> Services
+  Reconcile --> Chain
+  Reconcile --> DB
 ```
 
-Open [http://localhost:3000](http://localhost:3000), connect your wallet, and interact with the vault.
+### Planned stack
 
-## What's Included
+| Layer | Technology | Responsibility |
+| --- | --- | --- |
+| Web application | Next.js + TypeScript | UI and server-side API routes |
+| Database | Neon / PostgreSQL | Off-chain application data and derived mirrors |
+| Wallet | Phantom + Solana wallet adapter | Browser connection and client-side transaction signing |
+| Blockchain | Solana devnet + Anchor/Rust | Goal vaults, deposits, withdrawals, and settlement |
+| Assets | Metaplex Core | 1–3 seeded internal marketplace assets |
+| Scheduling | Vercel Cron | Refresh, reconciliation, and recurring-contribution triggers |
+| Marketplace | eBay Browse API | Search and item-detail ingestion |
 
-- **Wallet connection** via wallet-standard with auto-discovery and dropdown UI
-- **Cluster switching** — devnet, testnet, mainnet, and localnet from the header
-- **Wallet balance** display with airdrop button (devnet/testnet/localnet)
-- **SOL Vault program** — deposit and withdraw SOL from a personal PDA vault
-- **Toast notifications** with explorer links for every transaction
-- **Error handling** — human-readable messages for common Solana and program errors
-- **Codama-generated client** — type-safe program interactions using `@solana/kit`
-- **Tailwind CSS v4** with light/dark mode toggle
+## Data authority and reliability
 
-## Stack
+On-chain vault balance and goal status are always authoritative. The database mirror is refreshed on the same cadence as price tracking and is labeled with its last-read timestamp. Before critical actions such as purchase confirmation, the application performs an on-demand chain read. RPC failures preserve the last-known mirror with a stale indicator and block writes that depend on stale state.
 
-| Layer          | Technology                       |
-| -------------- | -------------------------------- |
-| Frontend       | Next.js 16, React 19, TypeScript |
-| Styling        | Tailwind CSS v4                  |
-| Solana Client  | `@solana/kit`, wallet-standard   |
-| Program Client | Codama-generated, `@solana/kit`  |
-| Program        | Anchor (Rust)                    |
+The eBay integration begins with a Week-1 validation spike covering production entitlements, Browse API access, response quality, scopes, and rate limits. If live access is unavailable or unsuitable, the same adapter contract uses a hand-curated messy-title dataset for development, benchmarking, and demonstrations; that dataset must not be represented as live eBay data.
 
-## Project Structure
+## Notifications and scheduled work
 
-```
-├── app/
-│   ├── components/
-│   │   ├── cluster-context.tsx  # Cluster state (React context + localStorage)
-│   │   ├── cluster-select.tsx   # Cluster switcher dropdown
-│   │   ├── grid-background.tsx  # Solana-branded decorative grid
-│   │   ├── providers.tsx        # Wallet + theme providers
-│   │   ├── theme-toggle.tsx     # Light/dark mode toggle
-│   │   ├── vault-card.tsx       # Vault deposit/withdraw UI
-│   │   └── wallet-button.tsx    # Wallet connect/disconnect dropdown
-│   ├── generated/vault/        # Codama-generated program client
-│   ├── lib/
-│   │   ├── wallet/             # Wallet-standard connection layer
-│   │   │   ├── types.ts        # Wallet types
-│   │   │   ├── standard.ts     # Wallet discovery + session creation
-│   │   │   ├── signer.ts       # WalletSession → TransactionSigner
-│   │   │   └── context.tsx     # WalletProvider + useWallet() hook
-│   │   ├── hooks/
-│   │   │   ├── use-balance.ts  # SWR-based balance fetching
-│   │   │   └── use-send-transaction.ts  # Transaction send with loading state
-│   │   ├── cluster.ts          # Cluster endpoints + RPC factory
-│   │   ├── lamports.ts         # SOL/lamports conversion
-│   │   ├── send-transaction.ts # Transaction build + sign + send pipeline
-│   │   ├── errors.ts           # Transaction error parsing
-│   │   └── explorer.ts         # Explorer URL builder + address helpers
-│   └── page.tsx                # Main page
-├── anchor/                     # Anchor workspace
-│   └── programs/vault/         # Vault program (Rust)
-└── codama.json                 # Codama client generation config
-```
+Notifications are debounced per `(goal_id, event_type)` over a rolling 24-hour window. Multiple event types in that window are batched into one notification. Scheduled serverless functions handle:
 
-## Local Development
+- adaptive price and availability refreshes;
+- on-chain reconciliation into the database mirror; and
+- recurring contribution submission when the required narrowly scoped service signer is securely configured.
 
-To test against a local validator instead of devnet:
+If the deployment plan cannot support more-than-daily cron execution, the MVP falls back to daily refresh plus rate-limited manual refresh. Recurring contributions remain manual if secure delegate signing is not implemented.
 
-1. **Start a local validator**
+## Project status
 
-   ```bash
-   solana-test-validator
-   ```
+This repository is being initialized from the MVP product requirements and architecture decisions. Implementation, infrastructure configuration, and deployment setup are the next milestones.
 
-2. **Deploy the program locally**
+## Planned milestones
 
-   ```bash
-   solana config set --url localhost
-   cd anchor
-   anchor build
-   anchor deploy
-   cd ..
-   npm run codama:js   # Regenerate client with local program ID
-   ```
+1. Scaffold the Next.js/TypeScript application and database schema.
+2. Run the eBay production/sandbox validation spike and lock the adapter contract.
+3. Build the catalogue, matching pipeline, confidence model, and review flows.
+4. Implement and test the Anchor goal-vault program and Phantom transaction flow.
+5. Add reconciliation, refresh scheduling, notifications, and minimal supporting screens.
+6. Seed the internal settlement demo, benchmark matching quality, and deploy the MVP.
 
-3. **Switch to localnet** in the app using the cluster selector in the header.
+## Reference documents
 
-## Deploy Your Own Vault
-
-The included vault program is already deployed to devnet. To deploy your own:
-
-> **Note:** `npm run setup` and `npm run anchor-build` pass `--ignore-keys` to `anchor build` so the program keeps the devnet program ID shipped with this template (`F4jZpgbtTb6RWNWq6v35fUeiAsRJMrDczVPv9U23yXjB`). Anchor 1.x otherwise generates a fresh program keypair on build and rewrites `declare_id!`. The steps below build without that flag on purpose, so Anchor syncs your own program ID before deploying.
-
-### Prerequisites
-
-- [Rust](https://rustup.rs/)
-- [Solana CLI](https://solana.com/docs/intro/installation)
-- [Anchor](https://www.anchor-lang.com/docs/installation)
-
-### Steps
-
-1. **Configure Solana CLI for devnet**
-
-   ```bash
-   solana config set --url devnet
-   ```
-
-2. **Create a wallet (if needed) and fund it**
-
-   ```bash
-   solana-keygen new
-   solana airdrop 2
-   ```
-
-3. **Build and deploy the program**
-
-   ```bash
-   cd anchor
-   anchor build
-   anchor keys sync    # Updates program ID in source
-   anchor build        # Rebuild with new ID
-   anchor deploy
-   cd ..
-   ```
-
-4. **Regenerate the client and restart**
-   ```bash
-   npm run setup   # Rebuilds program and regenerates client
-   npm run dev
-   ```
-
-## Testing
-
-Tests use [LiteSVM](https://github.com/LiteSVM/litesvm), a fast lightweight Solana VM for testing.
-
-```bash
-npm run anchor-build   # Build the program first
-npm run anchor-test    # Run tests
-```
-
-The tests are in `anchor/programs/vault/src/tests.rs` and automatically use the program ID from `declare_id!`.
-
-## Regenerating the Client
-
-If you modify the program, regenerate the TypeScript client:
-
-```bash
-npm run setup   # Or: npm run anchor-build && npm run codama:js
-```
-
-This uses [Codama](https://github.com/codama-idl/codama) to generate a type-safe client from the Anchor IDL.
-
-## Learn More
-
-- [Solana Docs](https://solana.com/docs) — core concepts and guides
-- [Anchor Docs](https://www.anchor-lang.com/docs/introduction) — program development framework
-- [Deploying Programs](https://solana.com/docs/programs/deploying) — deployment guide
-- [@solana/kit](https://github.com/anza-xyz/kit) — Solana JavaScript SDK
-- [Codama](https://github.com/codama-idl/codama) — client generation from IDL
+- `Grail_MVP_PRD_v2.1.md` — cut-down MVP scope, product decisions, risks, and acceptance direction.
+- `grail-architecture.mermaid` — first-pass system architecture and data flows.
