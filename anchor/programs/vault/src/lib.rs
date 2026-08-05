@@ -73,3 +73,4 @@ pub enum VaultError {
     #[msg("Invalid amount")]
     InvalidAmount,
 }
+// RiveSeek Goal Vault Program
