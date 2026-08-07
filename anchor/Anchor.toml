@@ -4,8 +4,11 @@
 resolution = true
 skip-lint = false
 
+[programs.localnet]
+riveseek_goal_vault = "FDtNFJfNyKCeyvAkt6GUPiu6WREjRb6GM6e29NugHqxp"
+
 [programs.devnet]
-vault = "FDtNFJfNyKCeyvAkt6GUPiu6WREjRb6GM6e29NugHqxp"
+riveseek_goal_vault = "FDtNFJfNyKCeyvAkt6GUPiu6WREjRb6GM6e29NugHqxp"
 
 [provider]
 cluster = "devnet"

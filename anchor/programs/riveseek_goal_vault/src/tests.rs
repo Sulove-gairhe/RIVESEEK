@@ -54,7 +54,7 @@ mod tests {
         let mut svm = LiteSVM::new();
 
         // Load the program
-        let program_bytes = include_bytes!("../../../target/deploy/vault.so");
+        let program_bytes = include_bytes!("../../../target/deploy/riveseek_goal_vault.so");
         svm.add_program(PROGRAM_ID, program_bytes);
 
         // Create a user with some SOL
@@ -109,7 +109,7 @@ mod tests {
     fn test_deposit_fails_if_vault_has_funds() {
         let mut svm = LiteSVM::new();
 
-        let program_bytes = include_bytes!("../../../target/deploy/vault.so");
+        let program_bytes = include_bytes!("../../../target/deploy/riveseek_goal_vault.so");
         svm.add_program(PROGRAM_ID, program_bytes);
 
         let user = Keypair::new();
@@ -146,7 +146,7 @@ mod tests {
     fn test_withdraw_fails_if_vault_empty() {
         let mut svm = LiteSVM::new();
 
-        let program_bytes = include_bytes!("../../../target/deploy/vault.so");
+        let program_bytes = include_bytes!("../../../target/deploy/riveseek_goal_vault.so");
         svm.add_program(PROGRAM_ID, program_bytes);
 
         let user = Keypair::new();
@@ -168,3 +168,4 @@ mod tests {
         assert!(result.is_err(), "Withdraw from empty vault should fail");
     }
 }
+

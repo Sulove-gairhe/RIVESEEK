@@ -6,4 +6,10 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./vault";
+export * from "./cancelGoal";
+export * from "./closeGoal";
+export * from "./createGoal";
+export * from "./deposit";
+export * from "./pauseGoal";
+export * from "./resumeGoal";
+export * from "./withdraw";
