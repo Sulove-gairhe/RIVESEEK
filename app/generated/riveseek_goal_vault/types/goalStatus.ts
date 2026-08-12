@@ -19,7 +19,6 @@ export enum GoalStatus {
   Active,
   Paused,
   Cancelled,
-  Closed,
 }
 
 export type GoalStatusArgs = GoalStatus;

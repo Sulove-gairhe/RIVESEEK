@@ -8,7 +8,6 @@ import { useBalance } from "./lib/hooks/use-balance";
 import { lamportsToSolString } from "./lib/lamports";
 import { useSolanaClient } from "./lib/solana-client-context";
 import { ellipsify } from "./lib/explorer";
-import { VaultCard } from "./components/vault-card";
 import { GridBackground } from "./components/grid-background";
 import { ThemeToggle } from "./components/theme-toggle";
 import { ClusterSelect } from "./components/cluster-select";
@@ -260,9 +259,6 @@ export default function Home() {
                 </p>
               </section>
             )}
-
-            {/* Vault Program Section */}
-            <VaultCard />
           </div>
         </main>
       </div>

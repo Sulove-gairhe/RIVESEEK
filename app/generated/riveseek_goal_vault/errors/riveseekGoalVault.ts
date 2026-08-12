@@ -30,6 +30,8 @@ export const RIVESEEK_GOAL_VAULT_ERROR__INSUFFICIENT_FUNDS = 0x1775; // 6005
 export const RIVESEEK_GOAL_VAULT_ERROR__INVALID_STATUS = 0x1776; // 6006
 /** VaultNotEmpty: Vault token account must be empty */
 export const RIVESEEK_GOAL_VAULT_ERROR__VAULT_NOT_EMPTY = 0x1777; // 6007
+/** InvalidVaultToken: Invalid vault token account */
+export const RIVESEEK_GOAL_VAULT_ERROR__INVALID_VAULT_TOKEN = 0x1778; // 6008
 
 export type RiveseekGoalVaultError =
   | typeof RIVESEEK_GOAL_VAULT_ERROR__AMOUNT_OVERFLOW
@@ -38,6 +40,7 @@ export type RiveseekGoalVaultError =
   | typeof RIVESEEK_GOAL_VAULT_ERROR__INVALID_AMOUNT
   | typeof RIVESEEK_GOAL_VAULT_ERROR__INVALID_MAXIMUM_BUDGET
   | typeof RIVESEEK_GOAL_VAULT_ERROR__INVALID_STATUS
+  | typeof RIVESEEK_GOAL_VAULT_ERROR__INVALID_VAULT_TOKEN
   | typeof RIVESEEK_GOAL_VAULT_ERROR__MAXIMUM_BUDGET_EXCEEDED
   | typeof RIVESEEK_GOAL_VAULT_ERROR__VAULT_NOT_EMPTY;
 
@@ -51,6 +54,7 @@ if (process.env.NODE_ENV !== "production") {
     [RIVESEEK_GOAL_VAULT_ERROR__INVALID_AMOUNT]: `Amount must be greater than zero`,
     [RIVESEEK_GOAL_VAULT_ERROR__INVALID_MAXIMUM_BUDGET]: `Maximum budget must be greater than zero`,
     [RIVESEEK_GOAL_VAULT_ERROR__INVALID_STATUS]: `Invalid goal status`,
+    [RIVESEEK_GOAL_VAULT_ERROR__INVALID_VAULT_TOKEN]: `Invalid vault token account`,
     [RIVESEEK_GOAL_VAULT_ERROR__MAXIMUM_BUDGET_EXCEEDED]: `Maximum budget exceeded`,
     [RIVESEEK_GOAL_VAULT_ERROR__VAULT_NOT_EMPTY]: `Vault token account must be empty`,
   };

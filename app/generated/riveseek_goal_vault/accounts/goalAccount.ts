@@ -62,6 +62,7 @@ export type GoalAccount = {
   owner: Address;
   goalId: bigint;
   fundingMint: Address;
+  vaultToken: Address;
   maximumBudget: bigint;
   status: GoalStatus;
   createdAt: bigint;
@@ -72,6 +73,7 @@ export type GoalAccountArgs = {
   owner: Address;
   goalId: number | bigint;
   fundingMint: Address;
+  vaultToken: Address;
   maximumBudget: number | bigint;
   status: GoalStatusArgs;
   createdAt: number | bigint;
@@ -86,6 +88,7 @@ export function getGoalAccountEncoder(): FixedSizeEncoder<GoalAccountArgs> {
       ["owner", getAddressEncoder()],
       ["goalId", getU64Encoder()],
       ["fundingMint", getAddressEncoder()],
+      ["vaultToken", getAddressEncoder()],
       ["maximumBudget", getU64Encoder()],
       ["status", getGoalStatusEncoder()],
       ["createdAt", getI64Encoder()],
@@ -102,6 +105,7 @@ export function getGoalAccountDecoder(): FixedSizeDecoder<GoalAccount> {
     ["owner", getAddressDecoder()],
     ["goalId", getU64Decoder()],
     ["fundingMint", getAddressDecoder()],
+    ["vaultToken", getAddressDecoder()],
     ["maximumBudget", getU64Decoder()],
     ["status", getGoalStatusDecoder()],
     ["createdAt", getI64Decoder()],
@@ -171,5 +175,5 @@ export async function fetchAllMaybeGoalAccount(
 }
 
 export function getGoalAccountSize(): number {
-  return 98;
+  return 130;
 }

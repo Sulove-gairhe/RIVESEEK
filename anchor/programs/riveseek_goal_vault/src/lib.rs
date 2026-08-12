@@ -16,6 +16,7 @@ pub mod riveseek_goal_vault {
         goal.owner = ctx.accounts.owner.key();
         goal.goal_id = goal_id;
         goal.funding_mint = ctx.accounts.funding_mint.key();
+        goal.vault_token = ctx.accounts.vault_token.key();
         goal.maximum_budget = maximum_budget;
         goal.status = GoalStatus::Active;
         goal.created_at = Clock::get()?.unix_timestamp;
@@ -64,7 +65,13 @@ pub mod riveseek_goal_vault {
     }
 
     pub fn cancel_goal(ctx: Context<GoalOnly>) -> Result<()> {
-        require!(ctx.accounts.goal_account.status != GoalStatus::Closed, VaultError::InvalidStatus);
+        require!(
+            matches!(
+                ctx.accounts.goal_account.status,
+                GoalStatus::Active | GoalStatus::Paused
+            ),
+            VaultError::InvalidStatus
+        );
         ctx.accounts.goal_account.status = GoalStatus::Cancelled;
         Ok(())
     }
@@ -110,7 +117,7 @@ pub struct GoalOnly<'info> {
 #[derive(Accounts)]
 pub struct GoalTokenAction<'info> {
     pub owner: Signer<'info>,
-    #[account(mut, has_one = owner)]
+    #[account(mut, has_one = owner, has_one = vault_token @ VaultError::InvalidVaultToken)]
     pub goal_account: Account<'info, GoalAccount>,
     #[account(address = goal_account.funding_mint)]
     pub funding_mint: Account<'info, Mint>,
@@ -128,7 +135,12 @@ pub struct GoalTokenAction<'info> {
 pub struct CloseGoal<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
-    #[account(mut, has_one = owner, close = owner)]
+    #[account(
+        mut,
+        has_one = owner,
+        has_one = vault_token @ VaultError::InvalidVaultToken,
+        close = owner
+    )]
     pub goal_account: Account<'info, GoalAccount>,
     /// CHECK: PDA authority is verified by seeds and used only for token CPI signing.
     #[account(seeds = [b"vault_token", goal_account.key().as_ref()], bump)]
@@ -144,6 +156,7 @@ pub struct GoalAccount {
     pub owner: Pubkey,
     pub goal_id: u64,
     pub funding_mint: Pubkey,
+    pub vault_token: Pubkey,
     pub maximum_budget: u64,
     pub status: GoalStatus,
     pub created_at: i64,
@@ -155,7 +168,6 @@ pub enum GoalStatus {
     Active,
     Paused,
     Cancelled,
-    Closed,
 }
 
 #[error_code]
@@ -176,5 +188,6 @@ pub enum VaultError {
     InvalidStatus,
     #[msg("Vault token account must be empty")]
     VaultNotEmpty,
+    #[msg("Invalid vault token account")]
+    InvalidVaultToken,
 }
-
