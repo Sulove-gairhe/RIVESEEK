@@ -11,7 +11,9 @@
     "format:check": "prettier --check .",
     "lint": "eslint",
     "setup": "npm run anchor-build && npm run codama:js",
-    "start": "next start"
+    "start": "next start",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx db/migrate.ts"
   },
   "description": "Next.js, Tailwind, @solana/kit, Anchor vault program",
   "keywords": [
@@ -26,6 +28,7 @@
   "version": "0.0.0",
   "private": true,
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@solana/kit": "^6.3.0",
     "@solana/kit-client-rpc": "^0.7.0",
     "@solana/kit-plugin-rpc": "^0.7.0",
@@ -33,8 +36,10 @@
     "@wallet-standard/app": "^1.1.0",
     "@wallet-standard/base": "^1.1.0",
     "@wallet-standard/features": "^1.1.0",
+    "drizzle-orm": "^0.45.2",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
+    "postgres": "^3.4.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "sonner": "^2.0.7",
@@ -49,11 +54,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "codama": "1.10.0",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }
-
