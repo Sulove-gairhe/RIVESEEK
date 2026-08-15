@@ -24,6 +24,12 @@ export type WalletSession = {
     transaction: Uint8Array,
     chain: string
   ) => Promise<Uint8Array>;
+  signIn?: (input?: Record<string, unknown>) => Promise<{
+    account: WalletAccount;
+    signedMessage: Uint8Array;
+    signature: Uint8Array;
+  }>;
+  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
 };
 
 export type WalletConnector = WalletConnectorMetadata & {

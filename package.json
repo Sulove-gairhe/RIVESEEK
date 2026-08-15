@@ -6,14 +6,15 @@
     "build": "next build",
     "ci": "npm run build && npm run lint && npm run format:check",
     "codama:js": "codama run js",
-    "dev": "next dev",
+    "dev": "NODE_OPTIONS='--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=1000' next dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint",
     "setup": "npm run anchor-build && npm run codama:js",
     "start": "next start",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx db/migrate.ts"
+    "db:migrate": "tsx db/migrate.ts",
+    "test:auth": "tsx --env-file=.env.local app/lib/auth/test-auth.ts"
   },
   "description": "Next.js, Tailwind, @solana/kit, Anchor vault program",
   "keywords": [
@@ -42,6 +43,7 @@
     "postgres": "^3.4.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.7",
     "swr": "^2.2.0",
     "ws": "^8.18.3"
