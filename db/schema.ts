@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"; // 1. Import eq
+import { eq, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -36,10 +36,10 @@ export const wallets = pgTable(
   },
   (table) => [
     uniqueIndex("wallets_chain_address_unique").on(table.chain, table.address),
-    // 2. Wrap with eq(table.isPrimary, true)
+    // 2. Use sql literal for WHERE clause instead of eq()
     uniqueIndex("wallets_one_primary_per_user")
       .on(table.userId)
-      .where(eq(table.isPrimary, true)),
+      .where(sql`${table.isPrimary} = true`),
     index("wallets_user_id_idx").on(table.userId),
   ]
 );
