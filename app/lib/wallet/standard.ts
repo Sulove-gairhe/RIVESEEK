@@ -9,8 +9,12 @@ import {
 import {
   SolanaSignTransaction,
   SolanaSignAndSendTransaction,
+  SolanaSignIn,
+  SolanaSignMessage,
   type SolanaSignTransactionFeature,
   type SolanaSignAndSendTransactionFeature,
+  type SolanaSignInFeature,
+  type SolanaSignMessageFeature,
 } from "@solana/wallet-standard-features";
 import type { Address } from "@solana/kit";
 import type {
@@ -54,6 +58,8 @@ function createConnector(wallet: StandardWallet): WalletConnector {
 
       const hasSendTx = SolanaSignAndSendTransaction in wallet.features;
       const hasSignTx = SolanaSignTransaction in wallet.features;
+      const hasSignIn = SolanaSignIn in wallet.features;
+      const hasSignMessage = SolanaSignMessage in wallet.features;
 
       const session: WalletSession = {
         account: walletAccount,
@@ -88,6 +94,37 @@ function createConnector(wallet: StandardWallet): WalletConnector {
                 account,
                 transaction,
                 chain: chain as `${string}:${string}`,
+              });
+              return new Uint8Array(result.signature);
+            }
+          : undefined,
+        signIn: hasSignIn
+          ? async (input?: Record<string, unknown>) => {
+              const feature = wallet.features[
+                SolanaSignIn
+              ] as SolanaSignInFeature[typeof SolanaSignIn];
+              const [result] = await feature.signIn(
+                input as Parameters<typeof feature.signIn>[0]
+              );
+              return {
+                account: {
+                  address: result.account.address as Address,
+                  publicKey: new Uint8Array(result.account.publicKey),
+                  label: result.account.label,
+                },
+                signedMessage: new Uint8Array(result.signedMessage),
+                signature: new Uint8Array(result.signature),
+              };
+            }
+          : undefined,
+        signMessage: hasSignMessage
+          ? async (message: Uint8Array) => {
+              const feature = wallet.features[
+                SolanaSignMessage
+              ] as SolanaSignMessageFeature[typeof SolanaSignMessage];
+              const [result] = await feature.signMessage({
+                account,
+                message,
               });
               return new Uint8Array(result.signature);
             }

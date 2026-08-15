@@ -4,6 +4,7 @@ import { useState } from "react";
 import { lamports as sol } from "@solana/kit";
 import { toast } from "sonner";
 import { useWallet } from "./lib/wallet/context";
+import { useAuth } from "./lib/auth/auth-context";
 import { useBalance } from "./lib/hooks/use-balance";
 import { lamportsToSolString } from "./lib/lamports";
 import { useSolanaClient } from "./lib/solana-client-context";
@@ -16,6 +17,14 @@ import { useCluster } from "./components/cluster-context";
 
 export default function Home() {
   const { wallet, status } = useWallet();
+  const {
+    user,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    error: authError,
+    signIn,
+    signOut,
+  } = useAuth();
   const { cluster, getExplorerUrl } = useCluster();
   const client = useSolanaClient();
 
@@ -259,6 +268,79 @@ export default function Home() {
                 </p>
               </section>
             )}
+
+            {/* Solana Authentication Status */}
+            <section className="relative w-full overflow-hidden rounded-2xl border border-border-low bg-card px-5 py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium">
+                    Solana Authentication (SIWS)
+                  </h3>
+                  <p className="mt-1 text-xs text-muted">
+                    Cryptographic sign-in verifying wallet key ownership without
+                    transferring funds or storing private keys.
+                  </p>
+                </div>
+                {isAuthenticated ? (
+                  <button
+                    onClick={() => void signOut()}
+                    disabled={isAuthLoading}
+                    className="cursor-pointer rounded-lg border border-border-low px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    Sign Out
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await signIn();
+                        toast.success("Successfully authenticated!");
+                      } catch (err: unknown) {
+                        const msg =
+                          err instanceof Error ? err.message : "Sign-in failed";
+                        toast.error(msg);
+                      }
+                    }}
+                    disabled={status !== "connected" || isAuthLoading}
+                    className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {isAuthLoading ? "Signing in..." : "Sign In with Solana"}
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-4 border-t border-border-low pt-3 text-xs">
+                {status !== "connected" ? (
+                  <p className="text-muted">
+                    Connect your wallet first to request an authentication
+                    challenge.
+                  </p>
+                ) : isAuthenticated && user ? (
+                  <div className="space-y-1">
+                    <p className="text-emerald-500 font-medium">
+                      Authenticated Session Active
+                    </p>
+                    <p className="font-mono text-muted">
+                      Application User ID:{" "}
+                      <span className="text-foreground">{user.id}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-amber-500 font-medium">
+                      Wallet Connected (Not Authenticated)
+                    </p>
+                    <p className="text-muted">
+                      Click &quot;Sign In with Solana&quot; to sign a
+                      cryptographic challenge and authorize your session.
+                    </p>
+                  </div>
+                )}
+                {authError && (
+                  <p className="mt-2 text-destructive">{authError}</p>
+                )}
+              </div>
+            </section>
           </div>
         </main>
       </div>
