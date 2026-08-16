@@ -15,6 +15,13 @@
       "when": 1786757857406,
       "tag": "0001_jittery_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786870372249,
+      "tag": "0002_wandering_scream",
+      "breakpoints": true
     }
   ]
 }
