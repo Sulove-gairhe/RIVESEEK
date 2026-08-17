@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useWallet } from "./lib/wallet/context";
@@ -9,18 +9,39 @@ import { ClusterSelect } from "./components/cluster-select";
 import { GoalCard } from "./components/goal-card";
 import { useCluster } from "./components/cluster-context";
 import { useBalance } from "./lib/hooks/use-balance";
+import { useTokenBalance } from "./lib/hooks/use-token-balance";
 import { useAuth } from "./lib/auth/auth-context";
 import { lamportsToSolString } from "./lib/lamports";
+import { microUsdcToString, DEVNET_TUSDC_MINT, LOCALNET_TUSDC_MINT } from "./lib/usdc";
 import { ellipsify } from "./lib/explorer";
+import { address as solanaAddress } from "@solana/kit";
 import { toast } from "sonner";
+import { MarketplaceSearch } from "./components/marketplace-search";
+import { MarketplaceListing } from "./lib/marketplace/types";
+import { CreateGoal } from "./components/create-goal";
 
 export default function Home() {
   const { status, wallet } = useWallet();
   const address = wallet?.account?.address;
   const { cluster } = useCluster();
   const balance = useBalance(address);
+  
+  // Determine USDC mint based on cluster
+  const usdcMint = cluster === "mainnet" 
+    ? DEVNET_TUSDC_MINT // Replace with actual mainnet USDC if needed
+    : cluster === "devnet"
+    ? DEVNET_TUSDC_MINT
+    : LOCALNET_TUSDC_MINT;
+  
+  const usdcBalance = useTokenBalance(
+    address ? solanaAddress(address) : undefined,
+    solanaAddress(usdcMint)
+  );
+  
   const { user, isAuthenticated, isLoading: isAuthLoading, error: authError, signIn, signOut } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
+  const [createdGoalPda, setCreatedGoalPda] = useState<string>("");
 
   const handleCopy = () => {
     if (!address) return;
@@ -112,14 +133,33 @@ export default function Home() {
                     </button>
                   )}
                 </div>
-                <p className="relative mt-4 font-mono text-4xl font-bold tabular-nums tracking-tight">
-                  {balance.lamports != null
-                    ? lamportsToSolString(balance.lamports)
-                    : "\u2014"}
-                  <span className="ml-1.5 text-lg font-normal text-muted">
-                    SOL
-                  </span>
-                </p>
+                
+                {/* Balance Grid: SOL and USDC side by side */}
+                <div className="relative mt-4 grid grid-cols-2 gap-4">
+                  {/* SOL Balance */}
+                  <div>
+                    <p className="font-mono text-3xl font-bold tabular-nums tracking-tight">
+                      {balance.lamports != null
+                        ? lamportsToSolString(balance.lamports)
+                        : "\u2014"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      SOL · {cluster === "mainnet" ? "Mainnet" : cluster === "devnet" ? "Devnet" : "Localnet"}
+                    </p>
+                  </div>
+
+                  {/* USDC Balance */}
+                  <div>
+                    <p className="font-mono text-3xl font-bold tabular-nums tracking-tight">
+                      {usdcBalance.amount != null
+                        ? microUsdcToString(usdcBalance.amount)
+                        : "0.00"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      USDC · {cluster === "mainnet" ? "Mainnet" : cluster === "devnet" ? "Devnet" : "Localnet"}
+                    </p>
+                  </div>
+                </div>
               </section>
             )}
 
@@ -196,8 +236,80 @@ export default function Home() {
               </div>
             </section>
 
+            {/* Marketplace Search Section */}
+            <MarketplaceSearch
+              selectedListing={selectedListing}
+              onSelectListing={setSelectedListing}
+            />
+
+            {/* Selected Target Card */}
+            {selectedListing && (
+              <section className="relative overflow-hidden rounded-2xl border border-primary bg-primary/5 p-5 shadow-xs space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-sm font-semibold text-primary">Selected Collectible Target</h3>
+                    <p className="text-xs text-muted">You are saving for this specific card listing.</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedListing(null)}
+                    className="text-xs text-muted hover:text-foreground cursor-pointer font-medium"
+                  >
+                    Clear Target
+                  </button>
+                </div>
+                <div className="flex gap-4 bg-background/40 p-3 rounded-xl border border-border-low">
+                  {selectedListing.imageUrl && (
+                    <div className="w-16 h-16 flex-shrink-0 rounded-md overflow-hidden border border-border-low bg-background flex items-center justify-center">
+                      <img
+                        src={selectedListing.imageUrl}
+                        alt={selectedListing.title}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-semibold text-foreground truncate">{selectedListing.title}</h4>
+                    <div className="mt-1 text-[11px] text-muted space-y-0.5">
+                      <div>
+                        Target Price:{" "}
+                        <span className="font-semibold text-foreground">
+                          ${parseFloat(selectedListing.price.value).toFixed(2)} {selectedListing.price.currency}
+                        </span>
+                      </div>
+                      {selectedListing.shipping && (
+                        <div>
+                          Shipping:{" "}
+                          <span className="text-foreground">
+                            ${parseFloat(selectedListing.shipping.value).toFixed(2)} {selectedListing.shipping.currency}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Create Goal Section */}
+            <CreateGoal
+              isAuthenticated={isAuthenticated}
+              onGoalCreated={(pda) => {
+                setCreatedGoalPda(pda);
+                toast.success(`Goal created! PDA: ${pda.slice(0, 8)}...`);
+              }}
+            />
+
             {/* Goal Vault Mirror Section */}
-            <GoalCard isAuthenticated={isAuthenticated} />
+            <GoalCard
+              isAuthenticated={isAuthenticated}
+              selectedListing={selectedListing}
+              initialGoalPda={createdGoalPda}
+              onBalanceChange={() => {
+                // Refresh both SOL and USDC balances
+                balance.mutate();
+                usdcBalance.mutate();
+              }}
+            />
           </div>
         </main>
       </div>

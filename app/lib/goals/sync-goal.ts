@@ -129,17 +129,31 @@ export async function syncGoalFromChain({
   }
 
   // 6. Resolve owner wallet from Neon
-  const [wallet] = await db
-    .select()
-    .from(wallets)
-    .where(
-      and(
-        eq(wallets.chain, "solana"),
-        eq(wallets.address, ownerAddress),
-        isNotNull(wallets.verifiedAt)
+  let wallet;
+  try {
+    [wallet] = await db
+      .select()
+      .from(wallets)
+      .where(
+        and(
+          eq(wallets.chain, "solana"),
+          eq(wallets.address, ownerAddress),
+          isNotNull(wallets.verifiedAt)
+        )
       )
-    )
-    .limit(1);
+      .limit(1);
+  } catch (dbError: unknown) {
+    // Enhanced error logging for database connectivity issues
+    console.error("Database query failed while resolving wallet:", {
+      error: dbError instanceof Error ? dbError.message : String(dbError),
+      cause: dbError instanceof Error ? dbError.cause : undefined,
+      ownerAddress,
+      chain: "solana",
+    });
+    throw new Error(
+      `Database connectivity error: ${dbError instanceof Error ? dbError.message : "Unknown error"}`
+    );
+  }
 
   if (!wallet) {
     return { status: "UNLINKED_WALLET", ownerAddress };
