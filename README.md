@@ -69,15 +69,15 @@ flowchart LR
 
 ### Planned stack
 
-| Layer | Technology | Responsibility |
-| --- | --- | --- |
-| Web application | Next.js + TypeScript | UI and server-side API routes |
-| Database | Neon / PostgreSQL | Off-chain application data and derived mirrors |
-| Wallet | Phantom + Solana wallet adapter | Browser connection and client-side transaction signing |
-| Blockchain | Solana devnet + Anchor/Rust | Goal vaults, deposits, withdrawals, and settlement |
-| Assets | Metaplex Core | 1–3 seeded internal marketplace assets |
-| Scheduling | Vercel Cron | Refresh, reconciliation, and recurring-contribution triggers |
-| Marketplace | eBay Browse API | Search and item-detail ingestion |
+| Layer           | Technology                      | Responsibility                                               |
+| --------------- | ------------------------------- | ------------------------------------------------------------ |
+| Web application | Next.js + TypeScript            | UI and server-side API routes                                |
+| Database        | Neon / PostgreSQL               | Off-chain application data and derived mirrors               |
+| Wallet          | Phantom + Solana wallet adapter | Browser connection and client-side transaction signing       |
+| Blockchain      | Solana devnet + Anchor/Rust     | Goal vaults, deposits, withdrawals, and settlement           |
+| Assets          | Metaplex Core                   | 1–3 seeded internal marketplace assets                       |
+| Scheduling      | Vercel Cron                     | Refresh, reconciliation, and recurring-contribution triggers |
+| Marketplace     | eBay Browse API                 | Search and item-detail ingestion                             |
 
 ## Data authority and reliability
 

@@ -16,5 +16,5 @@ CREATE TABLE "wallets" (
 --> statement-breakpoint
 ALTER TABLE "wallets" ADD CONSTRAINT "wallets_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "wallets_chain_address_unique" ON "wallets" USING btree ("chain","address");--> statement-breakpoint
-CREATE UNIQUE INDEX "wallets_one_primary_per_user" ON "wallets" USING btree ("user_id") WHERE "wallets"."is_primary" = $1;--> statement-breakpoint
+CREATE UNIQUE INDEX "wallets_one_primary_per_user" ON "wallets" USING btree ("user_id") WHERE "wallets"."is_primary" = true;--> statement-breakpoint
 CREATE INDEX "wallets_user_id_idx" ON "wallets" USING btree ("user_id");
