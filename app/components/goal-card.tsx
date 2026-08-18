@@ -17,6 +17,8 @@ import {
 } from "@solana/kit";
 import { ellipsify } from "../lib/explorer";
 import { MarketplaceListing } from "../lib/marketplace/types";
+import { CreateGoal } from "./create-goal";
+import { DEMO_TARGET } from "../lib/catalog/demo-target";
 
 export type GoalMirrorDTO = {
   id: string;
@@ -66,10 +68,6 @@ function formatMicroUsdc(baseUnitsStr: string): string {
   }
 }
 
-/**
- * Derive the Associated Token Address (ATA) for a given owner and mint.
- * Standard ATA derivation using seeds: [owner, tokenProgramId, mint]
- */
 async function findAssociatedTokenAddress(
   owner: Address,
   mint: Address
@@ -91,16 +89,122 @@ async function findAssociatedTokenAddress(
   return [ata, bump];
 }
 
+function AdvancedDetails({
+  goalPdaInput,
+  setGoalPdaInput,
+  goalMirror,
+  isRefreshing,
+  onRefresh,
+  cluster,
+}: {
+  goalPdaInput: string;
+  setGoalPdaInput: (v: string) => void;
+  goalMirror: GoalMirrorDTO | null;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  cluster: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <section className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border bg-card px-4 py-3 text-left transition hover:bg-accent/50"
+      >
+        <span className="text-sm font-medium text-foreground">Advanced Details</span>
+        <svg
+          className={`h-4 w-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="panel space-y-4 p-4 text-xs">
+          <div className="space-y-1.5">
+            <label className="block font-medium text-muted">Goal PDA</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Goal Account PDA"
+                value={goalPdaInput}
+                onChange={(e) => setGoalPdaInput(e.target.value.trim())}
+                className="input-field font-mono text-xs"
+              />
+              <button
+                onClick={() => void onRefresh()}
+                disabled={isRefreshing || !goalPdaInput}
+                className="btn-secondary shrink-0 px-3 py-2 text-xs"
+              >
+                {isRefreshing ? "Syncing..." : "Sync Mirror"}
+              </button>
+            </div>
+          </div>
+
+          {goalMirror && (
+            <dl className="space-y-3 font-mono">
+              <div className="flex justify-between gap-4 border-b border-border pb-2">
+                <dt className="text-muted">Goal PDA</dt>
+                <dd className="break-all text-right text-foreground">{goalMirror.accountAddress}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-border pb-2">
+                <dt className="text-muted">Vault Address</dt>
+                <dd className="break-all text-right text-foreground">{goalMirror.vaultToken}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-border pb-2">
+                <dt className="text-muted">Funding Mint</dt>
+                <dd className="break-all text-right text-foreground">{goalMirror.fundingMint}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-border pb-2">
+                <dt className="text-muted">Last Sync</dt>
+                <dd className="text-right text-foreground">
+                  {new Date(goalMirror.lastSyncedAt).toLocaleString()}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-border pb-2">
+                <dt className="text-muted">Goal ID</dt>
+                <dd className="text-foreground">{goalMirror.goalId}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-border pb-2">
+                <dt className="text-muted">Status</dt>
+                <dd className="text-foreground">{goalMirror.status}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Cluster</dt>
+                <dd className="text-foreground">{goalMirror.cluster || cluster}</dd>
+              </div>
+            </dl>
+          )}
+
+          {!goalMirror && (
+            <p className="text-muted">Enter a Goal PDA and sync to view technical details.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function GoalCard({
   isAuthenticated,
   selectedListing,
   initialGoalPda,
   onBalanceChange,
+  onGoalCreated,
+  walletUsdcBalance,
 }: {
   isAuthenticated: boolean;
   selectedListing?: MarketplaceListing | null;
   initialGoalPda?: string;
   onBalanceChange?: () => void;
+  onGoalCreated?: (goalPda: string) => void;
+  walletUsdcBalance?: string;
 }) {
   const { wallet, signer } = useWallet();
   const address = wallet?.account?.address;
@@ -108,14 +212,13 @@ export function GoalCard({
   const { send, isSending } = useSendTransaction();
 
   const [goalPdaInput, setGoalPdaInput] = useState("");
-  const [depositAmountInput, setDepositAmountInput] = useState("1.00"); // Display as tUSDC decimal
-  const [withdrawAmountInput, setWithdrawAmountInput] = useState(""); // Display as tUSDC decimal
+  const [depositAmountInput, setDepositAmountInput] = useState("1.00");
+  const [withdrawAmountInput, setWithdrawAmountInput] = useState("");
 
   const [goalMirror, setGoalMirror] = useState<GoalMirrorDTO | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
 
-  // Auto-populate PDA when initialGoalPda changes
   useEffect(() => {
     if (initialGoalPda && initialGoalPda !== goalPdaInput) {
       setGoalPdaInput(initialGoalPda);
@@ -123,10 +226,11 @@ export function GoalCard({
   }, [initialGoalPda]);
 
   let percent = 0;
-  if (goalMirror && selectedListing) {
+  const targetPrice = selectedListing?.price.value;
+  if (goalMirror && targetPrice) {
     try {
       const currentUnits = BigInt(goalMirror.vaultBalance);
-      const targetUnits = usdToMicroUsdc(selectedListing.price.value);
+      const targetUnits = usdToMicroUsdc(targetPrice);
       if (targetUnits > 0n) {
         const scaled = (currentUnits * 10000n) / targetUnits;
         percent = Math.min(100, Number(scaled) / 100);
@@ -136,7 +240,6 @@ export function GoalCard({
     }
   }
 
-  // Manual Refresh Handler
   const handleRefresh = useCallback(
     async (pdaToRefresh?: string) => {
       const pda = pdaToRefresh || goalPdaInput;
@@ -160,7 +263,7 @@ export function GoalCard({
         }
 
         setGoalMirror(data.goal);
-        setMessage({ type: "success", text: `Goal mirror refreshed successfully (${data.goal.status})` });
+        setMessage({ type: "success", text: `Synced with Solana · ${data.goal.status}` });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Refresh failed";
         setMessage({ type: "error", text: msg });
@@ -171,7 +274,6 @@ export function GoalCard({
     [goalPdaInput, cluster]
   );
 
-  // Deposit Handler
   const handleDeposit = useCallback(async () => {
     if (!signer || !address) {
       setMessage({ type: "error", text: "Wallet not connected" });
@@ -183,25 +285,22 @@ export function GoalCard({
       return;
     }
 
-    // Verify owner matches connected wallet
     if (goalMirror.ownerAddress !== address) {
       setMessage({
         type: "error",
-        text: `Goal owner (${ellipsify(goalMirror.ownerAddress, 4)}) does not match connected wallet (${ellipsify(address, 4)})`
+        text: `Goal owner (${ellipsify(goalMirror.ownerAddress, 4)}) does not match connected wallet (${ellipsify(address, 4)})`,
       });
       return;
     }
 
-    // Verify goal is active
     if (goalMirror.status !== "ACTIVE") {
       setMessage({
         type: "error",
-        text: `Goal is ${goalMirror.status}. Only ACTIVE goals can receive deposits.`
+        text: `Goal is ${goalMirror.status}. Only ACTIVE goals can receive deposits.`,
       });
       return;
     }
 
-    // Convert tUSDC to base units
     const amount = usdToMicroUsdc(depositAmountInput);
     if (amount <= 0n) {
       setMessage({ type: "error", text: "Deposit amount must be greater than zero." });
@@ -211,23 +310,19 @@ export function GoalCard({
     setMessage(null);
 
     try {
-      // Get account addresses from goal mirror
       const goalAccountAddr = solanaAddress(goalMirror.accountAddress);
       const fundingMintAddr = solanaAddress(goalMirror.fundingMint);
       const vaultTokenAddr = solanaAddress(goalMirror.vaultToken);
 
-      // Derive user's associated token account
       const [ownerTokenAddr] = await findAssociatedTokenAddress(
         solanaAddress(address),
         fundingMintAddr
       );
 
-      // Derive vault authority PDA for verification
       const [vaultAuthorityAddr] = await findVaultAuthorityPda({
         goalAccount: goalAccountAddr,
       });
 
-      // Build Codama deposit instruction (async version auto-derives vaultAuthority)
       const depositIx = await getDepositInstructionAsync({
         owner: signer,
         goalAccount: goalAccountAddr,
@@ -237,7 +332,6 @@ export function GoalCard({
         amount,
       });
 
-      // Log account details for debugging
       console.log("═══════════════════════════════════════════════════════");
       console.log("Deposit Instruction Accounts:");
       console.log("═══════════════════════════════════════════════════════");
@@ -251,23 +345,19 @@ export function GoalCard({
       console.log("  Amount:", amount.toString(), "base units");
       console.log("═══════════════════════════════════════════════════════");
 
-      // Send transaction to Solana
       const txSig = await send({ instructions: [depositIx] });
       setMessage({
         type: "success",
-        text: `Deposited ${depositAmountInput} tUSDC! Tx: ${ellipsify(txSig, 6)}`
+        text: `Deposited ${depositAmountInput} USDC · Tx: ${ellipsify(txSig, 6)}`,
       });
 
-      // Trigger balance refresh callback
       if (onBalanceChange) {
         onBalanceChange();
       }
 
-      // Trigger post-deposit mirror refresh
       try {
         await handleRefresh(goalMirror.accountAddress);
       } catch {
-        // Preserving transaction success if mirror refresh fails
         setMessage({
           type: "info",
           text: `Deposit confirmed (${ellipsify(txSig, 6)}), but mirror refresh failed. Click Refresh to sync.`,
@@ -276,16 +366,15 @@ export function GoalCard({
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Deposit transaction failed";
 
-      // Check for common errors
       if (msg.includes("insufficient funds") || msg.includes("InsufficientFunds")) {
         setMessage({
           type: "error",
-          text: `Insufficient tUSDC balance. You need ${depositAmountInput} tUSDC in your wallet.`
+          text: `Insufficient USDC balance. You need ${depositAmountInput} USDC in your wallet.`,
         });
       } else if (msg.includes("AccountNotFound") || msg.includes("could not find account")) {
         setMessage({
           type: "error",
-          text: `Token account not found. You may need to create a tUSDC token account first.`
+          text: "Token account not found. You may need to create a USDC token account first.",
         });
       } else {
         setMessage({ type: "error", text: msg });
@@ -302,7 +391,6 @@ export function GoalCard({
     onBalanceChange,
   ]);
 
-  // Withdrawal Handler
   const handleWithdraw = useCallback(async () => {
     if (!signer || !address) {
       setMessage({ type: "error", text: "Wallet not connected" });
@@ -314,37 +402,33 @@ export function GoalCard({
       return;
     }
 
-    // Verify owner matches connected wallet
     if (goalMirror.ownerAddress !== address) {
       setMessage({
         type: "error",
-        text: `Goal owner (${ellipsify(goalMirror.ownerAddress, 4)}) does not match connected wallet (${ellipsify(address, 4)})`
+        text: `Goal owner (${ellipsify(goalMirror.ownerAddress, 4)}) does not match connected wallet (${ellipsify(address, 4)})`,
       });
       return;
     }
 
-    // Verify goal is active
     if (goalMirror.status !== "ACTIVE") {
       setMessage({
         type: "error",
-        text: `Goal is ${goalMirror.status}. Only ACTIVE goals allow withdrawals.`
+        text: `Goal is ${goalMirror.status}. Only ACTIVE goals allow withdrawals.`,
       });
       return;
     }
 
-    // Convert tUSDC to base units
     const amount = usdToMicroUsdc(withdrawAmountInput);
     if (amount <= 0n) {
       setMessage({ type: "error", text: "Withdrawal amount must be greater than zero." });
       return;
     }
 
-    // Check against cached vault balance (user aware this is cached)
     const cachedVaultBalance = BigInt(goalMirror.vaultBalance);
     if (amount > cachedVaultBalance) {
       setMessage({
         type: "error",
-        text: `Withdrawal amount exceeds cached vault balance (${formatMicroUsdc(goalMirror.vaultBalance)} tUSDC). Refresh mirror to sync.`
+        text: `Withdrawal amount exceeds cached vault balance (${formatMicroUsdc(goalMirror.vaultBalance)} USDC). Refresh mirror to sync.`,
       });
       return;
     }
@@ -352,23 +436,19 @@ export function GoalCard({
     setMessage(null);
 
     try {
-      // Get account addresses from goal mirror
       const goalAccountAddr = solanaAddress(goalMirror.accountAddress);
       const fundingMintAddr = solanaAddress(goalMirror.fundingMint);
       const vaultTokenAddr = solanaAddress(goalMirror.vaultToken);
 
-      // Derive user's associated token account
       const [ownerTokenAddr] = await findAssociatedTokenAddress(
         solanaAddress(address),
         fundingMintAddr
       );
 
-      // Derive vault authority PDA for verification
       const [vaultAuthorityAddr] = await findVaultAuthorityPda({
         goalAccount: goalAccountAddr,
       });
 
-      // Build Codama withdraw instruction (async version auto-derives vaultAuthority)
       const withdrawIx = await getWithdrawInstructionAsync({
         owner: signer,
         goalAccount: goalAccountAddr,
@@ -378,7 +458,6 @@ export function GoalCard({
         amount,
       });
 
-      // Log account details for debugging
       console.log("═══════════════════════════════════════════════════════");
       console.log("Withdrawal Instruction Accounts:");
       console.log("═══════════════════════════════════════════════════════");
@@ -392,26 +471,21 @@ export function GoalCard({
       console.log("  Amount:", amount.toString(), "base units");
       console.log("═══════════════════════════════════════════════════════");
 
-      // Send transaction to Solana
       const txSig = await send({ instructions: [withdrawIx] });
       setMessage({
         type: "success",
-        text: `Withdrew ${withdrawAmountInput} tUSDC! Tx: ${ellipsify(txSig, 6)}`
+        text: `Withdrew ${withdrawAmountInput} USDC · Tx: ${ellipsify(txSig, 6)}`,
       });
 
-      // Clear withdrawal input after success
       setWithdrawAmountInput("");
 
-      // Trigger balance refresh callback
       if (onBalanceChange) {
         onBalanceChange();
       }
 
-      // Trigger post-withdrawal mirror refresh
       try {
         await handleRefresh(goalMirror.accountAddress);
       } catch {
-        // Preserving transaction success if mirror refresh fails
         setMessage({
           type: "info",
           text: `Withdrawal confirmed (${ellipsify(txSig, 6)}), but mirror refresh failed. Click Refresh to sync.`,
@@ -420,16 +494,15 @@ export function GoalCard({
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Withdrawal transaction failed";
 
-      // Check for common errors
       if (msg.includes("insufficient funds") || msg.includes("InsufficientFunds")) {
         setMessage({
           type: "error",
-          text: `Insufficient vault balance. The vault may have less than ${withdrawAmountInput} tUSDC.`
+          text: `Insufficient vault balance. The vault may have less than ${withdrawAmountInput} USDC.`,
         });
       } else if (msg.includes("AccountNotFound") || msg.includes("could not find account")) {
         setMessage({
           type: "error",
-          text: `Token account not found. You may need to create a tUSDC token account first.`
+          text: "Token account not found. You may need to create a USDC token account first.",
         });
       } else {
         setMessage({ type: "error", text: msg });
@@ -446,260 +519,177 @@ export function GoalCard({
     onBalanceChange,
   ]);
 
+  const goalTitle = selectedListing
+    ? selectedListing.title.split(/[,\-–]/)[0]?.trim() || selectedListing.title
+    : `${DEMO_TARGET.canonical.name} ${DEMO_TARGET.variant.grader} ${DEMO_TARGET.variant.grade}`;
+
+  const savedAmount = goalMirror ? formatMicroUsdc(goalMirror.vaultBalance) : "0.00";
+  const targetAmount = targetPrice ? parseFloat(targetPrice).toFixed(2) : "—";
+
   return (
-    <section className="relative w-full overflow-hidden rounded-2xl border border-border-low bg-card px-5 py-5 shadow-xs">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium">Goal Vault Mirror (Milestone 2C)</h3>
-          <p className="mt-1 text-xs text-muted">
-            Solana on-chain goal financial state mirrored to Neon database.
-          </p>
-        </div>
-        {goalPdaInput && (
-          <button
-            id="refresh-goal-btn"
-            onClick={() => void handleRefresh()}
-            disabled={isRefreshing}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-low px-3 py-1.5 text-xs font-medium transition hover:bg-cream disabled:opacity-50"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
-            >
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-            </svg>
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </button>
-        )}
-      </div>
+    <>
+      <section className="space-y-5">
+        <h2 className="section-label">Savings Goal</h2>
 
-      {!isAuthenticated ? (
-        <p className="mt-4 text-xs text-muted">
-          Sign in with your Solana wallet to access and refresh your goal mirror state.
-        </p>
-      ) : (
-        <div className="mt-4 space-y-4 text-xs">
-          {/* Target Progress Section */}
-          {selectedListing && goalMirror && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="text-primary font-sans font-medium">Savings Progress toward Target</span>
-                <span className="text-foreground font-mono">
-                  {formatMicroUsdc(goalMirror.vaultBalance)} / {selectedListing.price.value} tUSDC
-                </span>
-              </div>
-
-              {/* Visual Progress Bar */}
-              <div className="w-full bg-border-low rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-primary h-full transition-all duration-500"
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-
-              <p className="text-[10px] text-muted text-right font-mono">
-                {percent.toFixed(1)}% Saved
-              </p>
-            </div>
-          )}
-
-          {/* Goal PDA Input */}
-          <div className="space-y-1.5">
-            <label className="block font-medium text-foreground/80">
-              Goal Account PDA
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter GoalAccount PDA base58 address"
-                value={goalPdaInput}
-                onChange={(e) => setGoalPdaInput(e.target.value.trim())}
-                className="w-full rounded-lg border border-border-low bg-background px-3 py-1.5 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <button
-                onClick={() => void handleRefresh()}
-                disabled={isRefreshing || !goalPdaInput}
-                className="cursor-pointer rounded-lg bg-primary px-3 py-1.5 font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-              >
-                Sync Mirror
-              </button>
-            </div>
-          </div>
-
-          {/* Goal Mirror Details */}
-          {goalMirror && (
-            <div className="rounded-xl border border-border-low bg-background/50 p-4 space-y-2 font-mono">
-              <div className="flex items-center justify-between border-b border-border-low pb-2 font-sans">
-                <span className="text-xs font-semibold">Mirrored Goal Record</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                    goalMirror.status === "ACTIVE"
-                      ? "bg-emerald-500/10 text-emerald-500"
-                      : goalMirror.status === "CLOSED"
-                      ? "bg-rose-500/10 text-rose-500"
-                      : "bg-amber-500/10 text-amber-500"
-                  }`}
-                >
-                  {goalMirror.status}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                <div>
-                  <span className="text-muted">Goal ID:</span>{" "}
-                  <span className="text-foreground">{goalMirror.goalId}</span>
-                </div>
-                <div>
-                  <span className="text-muted">Cluster:</span>{" "}
-                  <span className="text-foreground">{goalMirror.cluster}</span>
-                </div>
-                <div>
-                  <span className="text-muted">Max Budget:</span>{" "}
-                  <span className="text-foreground">{goalMirror.maximumBudget} units</span>
-                </div>
-                <div>
-                  <span className="text-muted">Vault Balance (Cached):</span>{" "}
-                  <span className="font-bold text-foreground">{goalMirror.vaultBalance} units</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-muted">Account PDA:</span>{" "}
-                  <span className="text-foreground">{ellipsify(goalMirror.accountAddress, 8)}</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-muted">Last Synced:</span>{" "}
-                  <span className="text-foreground">{new Date(goalMirror.lastSyncedAt).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Deposit Form */}
-          <div className="rounded-xl border border-border-low bg-background/30 p-3 space-y-2">
-            <h4 className="font-sans font-medium text-foreground">Deposit to Vault</h4>
-
-            {!goalMirror ? (
-              <p className="text-xs text-muted">
-                Sync a goal mirror first to enable deposits.
-              </p>
-            ) : goalMirror.status !== "ACTIVE" ? (
-              <p className="text-xs text-amber-500">
-                Goal status is {goalMirror.status}. Only ACTIVE goals can receive deposits.
-              </p>
-            ) : goalMirror.ownerAddress !== address ? (
-              <p className="text-xs text-destructive">
-                This goal belongs to a different wallet ({ellipsify(goalMirror.ownerAddress, 4)}).
-              </p>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <label className="block font-medium text-foreground/80 text-xs">
-                    Deposit Amount (tUSDC)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 1.00"
-                    value={depositAmountInput}
-                    onChange={(e) => setDepositAmountInput(e.target.value.trim())}
-                    className="w-full rounded-md border border-border-low bg-background px-2.5 py-1.5 font-mono text-xs"
-                  />
-                  {depositAmountInput && (
-                    <p className="text-[10px] text-muted">
-                      Base units: {usdToMicroUsdc(depositAmountInput).toString()}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-md bg-background/50 p-2 space-y-1 text-[10px] text-muted">
-                  <div className="flex justify-between">
-                    <span>Funding Mint:</span>
-                    <span className="font-mono">{ellipsify(goalMirror.fundingMint, 6)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Vault Token:</span>
-                    <span className="font-mono">{ellipsify(goalMirror.vaultToken, 6)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Your ATA:</span>
-                    <span className="font-mono text-muted">Auto-derived</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => void handleDeposit()}
-                  disabled={isSending || !depositAmountInput}
-                  className="mt-1 w-full cursor-pointer rounded-lg bg-primary py-1.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {isSending ? "Depositing on Solana..." : "Execute Deposit & Refresh Mirror"}
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Withdrawal Form */}
-          {goalMirror && goalMirror.status === "ACTIVE" && goalMirror.ownerAddress === address && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-              <h4 className="font-sans font-medium text-foreground">Withdraw from Vault</h4>
-
-              <div className="rounded-md bg-background/30 p-2 text-[10px] text-muted">
-                <div className="flex justify-between">
-                  <span>Current Vault Balance (Cached):</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatMicroUsdc(goalMirror.vaultBalance)} tUSDC
+        <div className="panel p-5 space-y-5">
+          {!isAuthenticated ? (
+            <p className="text-sm text-muted">
+              Sign in with your Solana wallet to manage your savings goal.
+            </p>
+          ) : !goalMirror ? (
+            <CreateGoal
+              isAuthenticated={isAuthenticated}
+              selectedListing={selectedListing}
+              embedded
+              onGoalCreated={(pda) => {
+                setGoalPdaInput(pda);
+                onGoalCreated?.(pda);
+                void handleRefresh(pda);
+              }}
+            />
+          ) : (
+            <>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground">{goalTitle}</h3>
+                {goalMirror.status !== "ACTIVE" && (
+                  <span className="inline-block rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                    {goalMirror.status}
                   </span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block font-medium text-foreground/80 text-xs">
-                  Withdrawal Amount (tUSDC)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., 0.50"
-                  value={withdrawAmountInput}
-                  onChange={(e) => setWithdrawAmountInput(e.target.value.trim())}
-                  className="w-full rounded-md border border-border-low bg-background px-2.5 py-1.5 font-mono text-xs"
-                />
-                {withdrawAmountInput && (
-                  <p className="text-[10px] text-muted">
-                    Base units: {usdToMicroUsdc(withdrawAmountInput).toString()}
-                  </p>
                 )}
               </div>
 
-              <button
-                onClick={() => void handleWithdraw()}
-                disabled={isSending || !withdrawAmountInput}
-                className="mt-1 w-full cursor-pointer rounded-lg bg-amber-600 py-1.5 text-xs font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
-              >
-                {isSending ? "Withdrawing from Solana..." : "Execute Withdrawal & Refresh Mirror"}
-              </button>
-            </div>
-          )}
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-semibold tabular-nums text-foreground">
+                    ${savedAmount}
+                    <span className="ml-1 text-sm font-normal text-muted">saved</span>
+                  </span>
+                  <span className="text-sm tabular-nums text-muted">
+                    ${targetAmount} target
+                  </span>
+                </div>
 
-          {/* Status Message */}
-          {message && (
-            <p
-              className={`text-xs ${
-                message.type === "success"
-                  ? "text-emerald-500"
-                  : message.type === "error"
-                  ? "text-destructive"
-                  : "text-amber-500"
-              }`}
-            >
-              {message.text}
-            </p>
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <p className="text-right text-xs tabular-nums text-muted">{percent.toFixed(1)}%</p>
+                </div>
+              </div>
+
+              {walletUsdcBalance != null && (
+                <p className="text-sm text-muted">
+                  Wallet USDC:{" "}
+                  <span className="font-medium tabular-nums text-foreground">{walletUsdcBalance}</span>
+                </p>
+              )}
+
+              {goalMirror.status === "ACTIVE" && goalMirror.ownerAddress === address ? (
+                <div className="space-y-4 border-t border-border pt-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-muted">Amount</label>
+                    <input
+                      type="text"
+                      placeholder="1.00"
+                      value={depositAmountInput}
+                      onChange={(e) => setDepositAmountInput(e.target.value.trim())}
+                      className="input-field font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => void handleDeposit()}
+                      disabled={isSending || !depositAmountInput}
+                      className="btn-primary flex-1 min-w-[120px]"
+                    >
+                      {isSending ? "Processing..." : "Add Funds"}
+                    </button>
+                    <button
+                      onClick={() => void handleWithdraw()}
+                      disabled={isSending || !withdrawAmountInput}
+                      className="btn-secondary flex-1 min-w-[120px]"
+                    >
+                      {isSending ? "Processing..." : "Withdraw"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-muted">Withdraw amount</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., 0.50"
+                      value={withdrawAmountInput}
+                      onChange={(e) => setWithdrawAmountInput(e.target.value.trim())}
+                      className="input-field font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              ) : goalMirror.ownerAddress !== address ? (
+                <p className="text-sm text-destructive">
+                  This goal belongs to a different wallet ({ellipsify(goalMirror.ownerAddress, 4)}).
+                </p>
+              ) : null}
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <p className="flex items-center gap-1.5 text-xs text-success">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Synced with Solana · {cluster === "devnet" ? "Devnet" : cluster === "mainnet" ? "Mainnet" : "Localnet"}
+                </p>
+                <button
+                  id="refresh-goal-btn"
+                  onClick={() => void handleRefresh()}
+                  disabled={isRefreshing}
+                  className="flex cursor-pointer items-center gap-1.5 text-xs text-muted transition hover:text-foreground disabled:opacity-50"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+                  >
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+
+              {message && (
+                <p
+                  className={`text-xs ${
+                    message.type === "success"
+                      ? "text-success"
+                      : message.type === "error"
+                        ? "text-destructive"
+                        : "text-warning"
+                  }`}
+                >
+                  {message.text}
+                </p>
+              )}
+            </>
           )}
         </div>
-      )}
-    </section>
+      </section>
+
+      <AdvancedDetails
+        goalPdaInput={goalPdaInput}
+        setGoalPdaInput={setGoalPdaInput}
+        goalMirror={goalMirror}
+        isRefreshing={isRefreshing}
+        onRefresh={() => void handleRefresh()}
+        cluster={cluster}
+      />
+    </>
   );
 }

@@ -15,8 +15,47 @@ interface MarketplaceSearchProps {
   onSelectListing: (listing: MarketplaceListing | null) => void;
 }
 
+function MatchBadge({ status }: { status: MatchResult["status"] }) {
+  if (status === "EXACT") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded border border-success/30 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        EXACT
+      </span>
+    );
+  }
+  if (status === "NEEDS_REVIEW") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded border border-warning/30 bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        NEEDS REVIEW
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      REJECTED
+    </span>
+  );
+}
+
+function primaryReason(match: MatchResult): string {
+  if (match.reasons.length === 0) {
+    if (match.status === "EXACT") return "All critical fields match";
+    return "";
+  }
+  return match.reasons[0];
+}
+
 export function MarketplaceSearch({ selectedListing, onSelectListing }: MarketplaceSearchProps) {
-  const [query, setQuery] = useState("Charizard Celebrations 4/102");
+  const [query, setQuery] = useState(DEMO_TARGET.searchQuery);
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +71,7 @@ export function MarketplaceSearch({ selectedListing, onSelectListing }: Marketpl
       }
       const data = await res.json();
       setResults(data.results || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -49,200 +88,175 @@ export function MarketplaceSearch({ selectedListing, onSelectListing }: Marketpl
     fetchResults(query);
   };
 
+  const sortedResults = [...results].sort((a, b) => {
+    const order = { EXACT: 0, NEEDS_REVIEW: 1, REJECTED: 2 };
+    return order[a.match.status] - order[b.match.status];
+  });
+
   return (
-    <section className="relative w-full overflow-hidden rounded-2xl border border-border-low bg-card p-5 shadow-xs space-y-6">
-      {/* Demo Target Specs */}
-      <div className="rounded-xl border border-border-low bg-background/40 p-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">Demo Collection Target</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div>
-            <span className="text-muted">Card Name:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.canonical.name}</span>
-          </div>
-          <div>
-            <span className="text-muted">Set:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.canonical.set}</span>
-          </div>
-          <div>
-            <span className="text-muted">Card #:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.canonical.cardNumber}</span>
-          </div>
-          <div>
-            <span className="text-muted">Year:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.canonical.year}</span>
-          </div>
-          <div>
-            <span className="text-muted">Language:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.variant.language}</span>
-          </div>
-          <div>
-            <span className="text-muted">Finish:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.variant.finish}</span>
-          </div>
-          <div>
-            <span className="text-muted">Grader:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.variant.grader}</span>
-          </div>
-          <div>
-            <span className="text-muted">Grade:</span>{" "}
-            <span className="font-semibold text-foreground">{DEMO_TARGET.variant.grade}</span>
-          </div>
-        </div>
+    <section className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <h2 className="section-label">Live on eBay</h2>
+        <form onSubmit={handleSearch} className="flex w-full max-w-md gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search eBay listings..."
+            className="input-field text-xs"
+          />
+          <button type="submit" disabled={isLoading} className="btn-primary shrink-0 px-4 py-2 text-xs">
+            {isLoading ? "..." : "Search"}
+          </button>
+        </form>
       </div>
 
-      {/* Search Input Form */}
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search eBay listings..."
-          className="w-full rounded-lg border border-border-low bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-        />
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
-        >
-          {isLoading ? "Searching..." : "Search"}
-        </button>
-      </form>
+      {isLoading && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="panel overflow-hidden">
+              <div className="h-48 animate-pulse bg-muted/30" />
+              <div className="space-y-3 p-4">
+                <div className="h-5 w-20 animate-pulse rounded bg-muted/30" />
+                <div className="space-y-2">
+                  <div className="h-4 w-full animate-pulse rounded bg-muted/30" />
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-muted/30" />
+                </div>
+                <div className="h-6 w-24 animate-pulse rounded bg-muted/30" />
+                <div className="h-3 w-32 animate-pulse rounded bg-muted/30" />
+                <div className="space-y-2 pt-3">
+                  <div className="h-9 w-full animate-pulse rounded bg-muted/30" />
+                  <div className="h-9 w-full animate-pulse rounded bg-muted/30" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Results Container */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium">eBay Marketplace Results</h4>
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-        {isLoading && (
-          <div className="py-8 text-center text-xs text-muted">Loading eBay listings...</div>
-        )}
+      {!isLoading && !error && results.length === 0 && (
+        <div className="panel py-12 text-center text-sm text-muted">No listings found.</div>
+      )}
 
-        {error && (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-            {error}
+      {!isLoading && !error && sortedResults.length > 0 && (
+        <>
+          <div className="text-xs text-muted">
+            {sortedResults.length} {sortedResults.length === 1 ? "result" : "results"}
           </div>
-        )}
-
-        {!isLoading && !error && results.length === 0 && (
-          <div className="py-8 text-center text-xs text-muted">No listings found.</div>
-        )}
-
-        {!isLoading && !error && results.length > 0 && (
-          <div className="grid grid-cols-1 gap-4">
-            {results.map((item) => {
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {sortedResults.map((item) => {
               const { listing, match } = item;
               const isSelected = selectedListing?.externalId === listing.externalId;
-
-              let statusBadgeClass = "";
-              let statusLabel = "";
-              if (match.status === "EXACT") {
-                statusBadgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
-                statusLabel = "EXACT ✅";
-              } else if (match.status === "NEEDS_REVIEW") {
-                statusBadgeClass = "bg-amber-500/10 text-amber-500 border border-amber-500/20";
-                statusLabel = "NEEDS REVIEW ⚠️";
-              } else {
-                statusBadgeClass = "bg-rose-500/10 text-rose-500 border border-rose-500/20";
-                statusLabel = "REJECTED ❌";
-              }
+              const isExact = match.status === "EXACT";
+              const isRejected = match.status === "REJECTED";
 
               return (
-                <div
+                <article
                   key={listing.externalId}
-                  className={`flex flex-col sm:flex-row gap-4 p-4 rounded-xl border transition ${
-                    isSelected ? "border-primary bg-primary/5" : "border-border-low bg-background/20"
+                  className={`panel flex flex-col overflow-hidden transition hover:border-border/80 ${
+                    isExact
+                      ? isSelected
+                        ? "border-primary/50 ring-1 ring-primary/20"
+                        : "border-border"
+                      : isRejected
+                        ? "border-border opacity-75"
+                        : "border-border"
                   }`}
                 >
-                  {/* Thumbnail */}
-                  {listing.imageUrl && (
-                    <div className="w-full sm:w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border border-border-low bg-background flex items-center justify-center">
+                  {/* Image Section */}
+                  <div className="flex h-48 items-center justify-center overflow-hidden border-b border-border bg-muted/20">
+                    {listing.imageUrl ? (
                       <img
                         src={listing.imageUrl}
                         alt={listing.title}
-                        className="w-full h-full object-contain"
+                        className="h-full w-full object-contain p-3"
                       />
-                    </div>
-                  )}
-
-                  {/* Listing Details */}
-                  <div className="flex-1 space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                      <h5 className="text-xs font-semibold text-foreground leading-snug line-clamp-2">
-                        {listing.title}
-                      </h5>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap self-start ${statusBadgeClass}`}>
-                        {statusLabel}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
-                      <div>
-                        Price:{" "}
-                        <span className="font-semibold text-foreground">
-                          ${parseFloat(listing.price.value).toFixed(2)} {listing.price.currency}
-                        </span>
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-muted">
+                        No image
                       </div>
-                      {listing.shipping && (
-                        <div>
-                          Shipping:{" "}
-                          <span className="font-semibold text-foreground">
-                            ${parseFloat(listing.shipping.value).toFixed(2)} {listing.shipping.currency}
-                          </span>
-                        </div>
-                      )}
-                      {listing.seller?.username && (
-                        <div>
-                          Seller:{" "}
-                          <span className="text-foreground">
-                            {listing.seller.username} ({listing.seller.feedbackPercentage ?? "100"}%)
-                          </span>
+                    )}
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="flex flex-1 flex-col gap-3 p-4">
+                    {/* Match Badge */}
+                    <div>
+                      <MatchBadge status={match.status} />
+                    </div>
+
+                    {/* Title - Limited to 3 lines */}
+                    <h3
+                      className="text-sm font-medium leading-snug text-foreground line-clamp-3"
+                      title={listing.title}
+                    >
+                      {listing.title}
+                    </h3>
+
+                    {/* Price */}
+                    <div className="space-y-0.5">
+                      <div className="text-xl font-bold tabular-nums text-foreground">
+                        ${parseFloat(listing.price.value).toFixed(2)}
+                      </div>
+                      {listing.shipping && listing.shipping.value !== "0" && listing.shipping.value !== "0.00" && (
+                        <div className="text-xs text-muted">
+                          + ${listing.shipping.value} shipping
                         </div>
                       )}
                     </div>
 
-                    {/* Match Explanation */}
-                    {match.reasons.length > 0 && (
-                      <div className="rounded-md bg-background/40 p-2 text-[10px] font-mono border border-border-low/50">
-                        <span className="text-muted block font-semibold mb-0.5">Matcher Reason(s):</span>
-                        <ul className="list-disc list-inside space-y-0.5 text-foreground/80">
-                          {match.reasons.map((reason, idx) => (
-                            <li key={idx}>{reason}</li>
-                          ))}
-                        </ul>
+                    {/* Seller Info */}
+                    {listing.seller?.username && (
+                      <div className="text-xs text-muted">
+                        Seller: {listing.seller.username}
+                        {listing.seller.feedbackPercentage != null &&
+                          ` • ${listing.seller.feedbackPercentage}% positive`}
                       </div>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-1">
+                    {/* Match Reason */}
+                    {primaryReason(match) && (
+                      <p className="text-xs text-muted line-clamp-2">{primaryReason(match)}</p>
+                    )}
+
+                    {/* Actions - Pushed to bottom */}
+                    <div className="mt-auto flex flex-col gap-2 pt-3">
                       <a
                         href={listing.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-border-low px-3 py-1.5 text-[10px] font-medium transition hover:bg-cream text-foreground"
+                        className="btn-secondary w-full px-3 py-2 text-center text-xs"
                       >
                         View on eBay
                       </a>
 
-                      {match.status === "EXACT" && (
+                      {isExact && (
                         <button
                           type="button"
                           onClick={() => onSelectListing(isSelected ? null : listing)}
-                          className={`cursor-pointer rounded-lg px-3 py-1.5 text-[10px] font-semibold transition ${
+                          className={`w-full cursor-pointer rounded-md px-3 py-2 text-xs font-semibold transition ${
                             isSelected
-                              ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500/20"
-                              : "bg-primary text-primary-foreground hover:bg-primary/90"
+                              ? "border border-success/30 bg-success/10 text-success"
+                              : "btn-primary"
                           }`}
                         >
-                          {isSelected ? "Target Locked ✓" : "Save for this card"}
+                          {isSelected ? "✓ Tracking" : "Add to Savings"}
                         </button>
                       )}
                     </div>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </section>
   );
 }

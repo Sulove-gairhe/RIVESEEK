@@ -95,3 +95,61 @@ export const goalMirrors = pgTable(
     index("goal_mirrors_wallet_id_idx").on(table.walletId),
   ]
 );
+
+export const savingsGoals = pgTable(
+  "savings_goals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    walletId: uuid("wallet_id")
+      .notNull()
+      .references(() => wallets.id),
+    cluster: text("cluster").notNull(),
+    goalId: numeric("goal_id", { precision: 20, scale: 0 }).notNull(),
+    goalAccountPda: text("goal_account_pda").notNull(),
+    marketplace: text("marketplace").notNull(),
+    externalListingId: text("external_listing_id").notNull(),
+    title: text("title").notNull(),
+    imageUrl: text("image_url"),
+    targetPrice: numeric("target_price", { precision: 20, scale: 6 }).notNull(),
+    currency: text("currency").notNull(),
+    canonicalName: text("canonical_name"),
+    setName: text("set_name"),
+    cardNumber: text("card_number"),
+    year: numeric("year", { precision: 4, scale: 0 }),
+    language: text("language"),
+    finish: text("finish"),
+    grader: text("grader"),
+    grade: numeric("grade", { precision: 3, scale: 0 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("savings_goals_wallet_cluster_goal_id_unique").on(
+      table.walletId,
+      table.cluster,
+      table.goalId
+    ),
+    uniqueIndex("savings_goals_cluster_pda_unique").on(
+      table.cluster,
+      table.goalAccountPda
+    ),
+    uniqueIndex("savings_goals_user_marketplace_listing_unique").on(
+      table.userId,
+      table.marketplace,
+      table.externalListingId
+    ),
+    index("savings_goals_wallet_id_idx").on(table.walletId),
+    index("savings_goals_user_id_idx").on(table.userId),
+    index("savings_goals_cluster_pda_idx").on(
+      table.cluster,
+      table.goalAccountPda
+    ),
+  ]
+);

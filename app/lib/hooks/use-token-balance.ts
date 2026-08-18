@@ -36,6 +36,16 @@ async function findAssociatedTokenAddress(
     return [ata, bump];
 }
 
+function decodeBase64AccountData(data: unknown): Uint8Array | null {
+    if (typeof data === "string") {
+        return Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    }
+    if (Array.isArray(data) && data.length >= 1 && typeof data[0] === "string") {
+        return Uint8Array.from(atob(data[0]), (c) => c.charCodeAt(0));
+    }
+    return null;
+}
+
 /**
  * Hook to fetch and subscribe to SPL token balance for a given owner and mint.
  * Returns balance as bigint base units, or null if the account doesn't exist.
@@ -68,15 +78,8 @@ export function useTokenBalance(owner?: Address, mint?: Address) {
                 // Parse the token account data
                 // Token account layout: amount is at bytes 64-71 (u64 little-endian)
                 const data = accountInfo.value.data;
-
-                // Decode base64 if necessary
-                let buffer: Uint8Array;
-                if (typeof data === "string") {
-                    buffer = Uint8Array.from(atob(data), c => c.charCodeAt(0));
-                } else if (Array.isArray(data) && data.length === 2) {
-                    // [base64String, encoding]
-                    buffer = Uint8Array.from(atob(data[0]), c => c.charCodeAt(0));
-                } else {
+                const buffer = decodeBase64AccountData(data);
+                if (!buffer) {
                     return null;
                 }
 
@@ -130,12 +133,8 @@ export function useTokenBalance(owner?: Address, mint?: Address) {
                         continue;
                     }
 
-                    let buffer: Uint8Array;
-                    if (typeof accountData === "string") {
-                        buffer = Uint8Array.from(atob(accountData), c => c.charCodeAt(0));
-                    } else if (Array.isArray(accountData) && accountData.length === 2) {
-                        buffer = Uint8Array.from(atob(accountData[0]), c => c.charCodeAt(0));
-                    } else {
+                    const buffer = decodeBase64AccountData(accountData);
+                    if (!buffer) {
                         continue;
                     }
 

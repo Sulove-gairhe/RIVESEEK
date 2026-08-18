@@ -1,0 +1,726 @@
+{
+    "id": "a1b2c3d4-5678-9abc-def0-123456789abc",
+    "prevId": "68d99296-4295-4f18-87e4-834f7dbd4f78",
+    "version": "7",
+    "dialect": "postgresql",
+    "tables": {
+        "public.auth_challenges": {
+            "name": "auth_challenges",
+            "schema": "",
+            "columns": {
+                "nonce": {
+                    "name": "nonce",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true
+                },
+                "address": {
+                    "name": "address",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "domain": {
+                    "name": "domain",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "uri": {
+                    "name": "uri",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "issued_at": {
+                    "name": "issued_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                },
+                "expires_at": {
+                    "name": "expires_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "consumed_at": {
+                    "name": "consumed_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": false
+                }
+            },
+            "indexes": {},
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "policies": {},
+            "checkConstraints": {},
+            "isRLSEnabled": false
+        },
+        "public.goal_mirrors": {
+            "name": "goal_mirrors",
+            "schema": "",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "uuid",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "default": "gen_random_uuid()"
+                },
+                "wallet_id": {
+                    "name": "wallet_id",
+                    "type": "uuid",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "cluster": {
+                    "name": "cluster",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "account_address": {
+                    "name": "account_address",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "owner_address": {
+                    "name": "owner_address",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "goal_id": {
+                    "name": "goal_id",
+                    "type": "numeric(20, 0)",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "funding_mint": {
+                    "name": "funding_mint",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "vault_token": {
+                    "name": "vault_token",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "maximum_budget": {
+                    "name": "maximum_budget",
+                    "type": "numeric(20, 0)",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "vault_balance": {
+                    "name": "vault_balance",
+                    "type": "numeric(20, 0)",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "status": {
+                    "name": "status",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "last_observed_slot": {
+                    "name": "last_observed_slot",
+                    "type": "numeric(20, 0)",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "on_chain_created_at": {
+                    "name": "on_chain_created_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "last_synced_at": {
+                    "name": "last_synced_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                }
+            },
+            "indexes": {
+                "goal_mirrors_cluster_account_address_unique": {
+                    "name": "goal_mirrors_cluster_account_address_unique",
+                    "columns": [
+                        {
+                            "expression": "cluster",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "account_address",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "goal_mirrors_cluster_owner_goal_id_unique": {
+                    "name": "goal_mirrors_cluster_owner_goal_id_unique",
+                    "columns": [
+                        {
+                            "expression": "cluster",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "owner_address",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "goal_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "goal_mirrors_wallet_id_idx": {
+                    "name": "goal_mirrors_wallet_id_idx",
+                    "columns": [
+                        {
+                            "expression": "wallet_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": false,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                }
+            },
+            "foreignKeys": {
+                "goal_mirrors_wallet_id_wallets_id_fk": {
+                    "name": "goal_mirrors_wallet_id_wallets_id_fk",
+                    "tableFrom": "goal_mirrors",
+                    "tableTo": "wallets",
+                    "columnsFrom": [
+                        "wallet_id"
+                    ],
+                    "columnsTo": [
+                        "id"
+                    ],
+                    "onDelete": "no action",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "policies": {},
+            "checkConstraints": {},
+            "isRLSEnabled": false
+        },
+        "public.savings_goals": {
+            "name": "savings_goals",
+            "schema": "",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "uuid",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "default": "gen_random_uuid()"
+                },
+                "user_id": {
+                    "name": "user_id",
+                    "type": "uuid",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "wallet_id": {
+                    "name": "wallet_id",
+                    "type": "uuid",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "cluster": {
+                    "name": "cluster",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "goal_id": {
+                    "name": "goal_id",
+                    "type": "numeric(20, 0)",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "goal_account_pda": {
+                    "name": "goal_account_pda",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "marketplace": {
+                    "name": "marketplace",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "external_listing_id": {
+                    "name": "external_listing_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "title": {
+                    "name": "title",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "image_url": {
+                    "name": "image_url",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "target_price": {
+                    "name": "target_price",
+                    "type": "numeric(20, 6)",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "currency": {
+                    "name": "currency",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "canonical_name": {
+                    "name": "canonical_name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "set_name": {
+                    "name": "set_name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "card_number": {
+                    "name": "card_number",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "year": {
+                    "name": "year",
+                    "type": "numeric(4, 0)",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "language": {
+                    "name": "language",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "finish": {
+                    "name": "finish",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "grader": {
+                    "name": "grader",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "grade": {
+                    "name": "grade",
+                    "type": "numeric(3, 0)",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                }
+            },
+            "indexes": {
+                "savings_goals_wallet_cluster_goal_id_unique": {
+                    "name": "savings_goals_wallet_cluster_goal_id_unique",
+                    "columns": [
+                        {
+                            "expression": "wallet_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "cluster",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "goal_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "savings_goals_cluster_pda_unique": {
+                    "name": "savings_goals_cluster_pda_unique",
+                    "columns": [
+                        {
+                            "expression": "cluster",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "goal_account_pda",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "savings_goals_user_marketplace_listing_unique": {
+                    "name": "savings_goals_user_marketplace_listing_unique",
+                    "columns": [
+                        {
+                            "expression": "user_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "marketplace",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "external_listing_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "savings_goals_wallet_id_idx": {
+                    "name": "savings_goals_wallet_id_idx",
+                    "columns": [
+                        {
+                            "expression": "wallet_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": false,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "savings_goals_user_id_idx": {
+                    "name": "savings_goals_user_id_idx",
+                    "columns": [
+                        {
+                            "expression": "user_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": false,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "savings_goals_cluster_pda_idx": {
+                    "name": "savings_goals_cluster_pda_idx",
+                    "columns": [
+                        {
+                            "expression": "cluster",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "goal_account_pda",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": false,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                }
+            },
+            "foreignKeys": {
+                "savings_goals_user_id_users_id_fk": {
+                    "name": "savings_goals_user_id_users_id_fk",
+                    "tableFrom": "savings_goals",
+                    "tableTo": "users",
+                    "columnsFrom": [
+                        "user_id"
+                    ],
+                    "columnsTo": [
+                        "id"
+                    ],
+                    "onDelete": "no action",
+                    "onUpdate": "no action"
+                },
+                "savings_goals_wallet_id_wallets_id_fk": {
+                    "name": "savings_goals_wallet_id_wallets_id_fk",
+                    "tableFrom": "savings_goals",
+                    "tableTo": "wallets",
+                    "columnsFrom": [
+                        "wallet_id"
+                    ],
+                    "columnsTo": [
+                        "id"
+                    ],
+                    "onDelete": "no action",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "policies": {},
+            "checkConstraints": {},
+            "isRLSEnabled": false
+        },
+        "public.users": {
+            "name": "users",
+            "schema": "",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "uuid",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "default": "gen_random_uuid()"
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                }
+            },
+            "indexes": {},
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "policies": {},
+            "checkConstraints": {},
+            "isRLSEnabled": false
+        },
+        "public.wallets": {
+            "name": "wallets",
+            "schema": "",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "uuid",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "default": "gen_random_uuid()"
+                },
+                "user_id": {
+                    "name": "user_id",
+                    "type": "uuid",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "chain": {
+                    "name": "chain",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "address": {
+                    "name": "address",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "is_primary": {
+                    "name": "is_primary",
+                    "type": "boolean",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": false
+                },
+                "verified_at": {
+                    "name": "verified_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                }
+            },
+            "indexes": {
+                "wallets_chain_address_unique": {
+                    "name": "wallets_chain_address_unique",
+                    "columns": [
+                        {
+                            "expression": "chain",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "address",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "wallets_one_primary_per_user": {
+                    "name": "wallets_one_primary_per_user",
+                    "columns": [
+                        {
+                            "expression": "user_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "where": "\"wallets\".\"is_primary\" = true",
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "wallets_user_id_idx": {
+                    "name": "wallets_user_id_idx",
+                    "columns": [
+                        {
+                            "expression": "user_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": false,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                }
+            },
+            "foreignKeys": {
+                "wallets_user_id_users_id_fk": {
+                    "name": "wallets_user_id_users_id_fk",
+                    "tableFrom": "wallets",
+                    "tableTo": "users",
+                    "columnsFrom": [
+                        "user_id"
+                    ],
+                    "columnsTo": [
+                        "id"
+                    ],
+                    "onDelete": "no action",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "policies": {},
+            "checkConstraints": {},
+            "isRLSEnabled": false
+        }
+    },
+    "enums": {},
+    "schemas": {},
+    "sequences": {},
+    "roles": {},
+    "policies": {},
+    "views": {},
+    "_meta": {
+        "columns": {},
+        "schemas": {},
+        "tables": {}
+    }
+}
