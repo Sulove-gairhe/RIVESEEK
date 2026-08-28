@@ -1,349 +1,355 @@
 "use client";
 
 import { useState } from "react";
-import { lamports as sol } from "@solana/kit";
+import { address as solanaAddress } from "@solana/kit";
 import { toast } from "sonner";
-import { useWallet } from "./lib/wallet/context";
-import { useAuth } from "./lib/auth/auth-context";
-import { useBalance } from "./lib/hooks/use-balance";
-import { lamportsToSolString } from "./lib/lamports";
-import { useSolanaClient } from "./lib/solana-client-context";
-import { ellipsify } from "./lib/explorer";
-import { GridBackground } from "./components/grid-background";
-import { ThemeToggle } from "./components/theme-toggle";
 import { ClusterSelect } from "./components/cluster-select";
+import { GoalCard } from "./components/goal-card";
+import { MarketplaceSearch } from "./components/marketplace-search";
+import { ParticleField } from "./components/particle-field";
+import { TargetSection } from "./components/target-section";
+import { ThemeToggle } from "./components/theme-toggle";
 import { WalletButton } from "./components/wallet-button";
 import { useCluster } from "./components/cluster-context";
+import { useAuth } from "./lib/auth/auth-context";
+import { ellipsify } from "./lib/explorer";
+import { useBalance } from "./lib/hooks/use-balance";
+import { useTokenBalance } from "./lib/hooks/use-token-balance";
+import { lamportsToSolString } from "./lib/lamports";
+import { MarketplaceListing } from "./lib/marketplace/types";
+import {
+  DEVNET_TUSDC_MINT,
+  LOCALNET_TUSDC_MINT,
+  microUsdcToString,
+} from "./lib/usdc";
+import { useWallet } from "./lib/wallet/context";
+
+const BENEFITS = [
+  ["01", "Seek", "Search live listings and lock the exact thing you want."],
+  ["02", "Save", "Build toward it with an on-chain goal you control."],
+  ["03", "Own", "Track the finish line and withdraw when you are ready."],
+] as const;
 
 export default function Home() {
-  const { wallet, status } = useWallet();
+  const { status, wallet } = useWallet();
+  const address = wallet?.account?.address;
+  const { cluster } = useCluster();
+  const balance = useBalance(address);
+  const usdcMint =
+    cluster === "localnet" ? LOCALNET_TUSDC_MINT : DEVNET_TUSDC_MINT;
+  const usdcBalance = useTokenBalance(
+    address ? solanaAddress(address) : undefined,
+    solanaAddress(usdcMint)
+  );
   const {
-    user,
     isAuthenticated,
     isLoading: isAuthLoading,
     error: authError,
     signIn,
     signOut,
   } = useAuth();
-  const { cluster, getExplorerUrl } = useCluster();
-  const client = useSolanaClient();
-
-  const address = wallet?.account.address;
-  const balance = useBalance(address);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!address) return;
-    await navigator.clipboard.writeText(address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const [selectedListing, setSelectedListing] =
+    useState<MarketplaceListing | null>(null);
+  const [createdGoalPda, setCreatedGoalPda] = useState("");
 
   const handleAirdrop = async () => {
     if (!address) return;
     try {
-      toast.info("Requesting airdrop...");
-      const sig = await client.airdrop(address, sol(1_000_000_000n));
-      toast.success("Airdrop received!", {
-        description: sig ? (
-          <a
-            href={getExplorerUrl(`/tx/${sig}`)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            View transaction
-          </a>
-        ) : undefined,
-      });
-    } catch (err) {
-      console.error("Airdrop failed:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      const isRateLimited =
-        msg.includes("429") || msg.includes("Internal JSON-RPC error");
-      toast.error(
-        isRateLimited
-          ? "Devnet faucet rate-limited. Use the web faucet instead."
-          : "Airdrop failed. Try again later.",
-        isRateLimited
-          ? {
-              description: (
-                <a
-                  href="https://faucet.solana.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  Open faucet.solana.com
-                </a>
-              ),
-            }
-          : undefined
+      const response = await fetch(
+        cluster === "localnet"
+          ? "http://localhost:8899"
+          : `https://api.${cluster}.solana.com`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "requestAirdrop",
+            params: [address, 1_000_000_000],
+          }),
+        }
       );
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      toast.success("Airdropped 1 SOL!");
+      balance.mutate();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Airdrop failed");
     }
   };
 
-  return (
-    <div className="relative min-h-screen bg-background text-foreground">
-      <GridBackground />
+  const handleSignIn = async () => {
+    try {
+      await signIn();
+      toast.success("Successfully authenticated!");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Sign-in failed");
+    }
+  };
 
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <span className="text-sm font-semibold tracking-tight">
-            Solana Starter Kit
-          </span>
-          <div className="flex items-center gap-3">
+  const solDisplay =
+    balance.lamports != null ? lamportsToSolString(balance.lamports) : "—";
+  const usdcDisplay =
+    usdcBalance.amount != null ? microUsdcToString(usdcBalance.amount) : "0.00";
+
+  return (
+    <div className="site-shell relative min-h-screen w-full overflow-hidden bg-background font-sans antialiased text-foreground">
+      <div className="ambient-light ambient-light-one" aria-hidden="true" />
+      <div className="ambient-light ambient-light-two" aria-hidden="true" />
+      <div className="noise-layer" aria-hidden="true" />
+      <ParticleField />
+
+      <nav className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-7 sm:pt-6">
+        <div className="nav-glass mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl px-4 sm:h-16 sm:px-6">
+          <a
+            href="#top"
+            className="flex items-center gap-2.5"
+            aria-label="RiveSeek home"
+          >
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+            </span>
+            <span className="hidden text-sm font-semibold tracking-[0.22em] text-foreground min-[360px]:inline">
+              RIVESEEK
+            </span>
+          </a>
+
+          <div className="hidden items-center gap-8 text-xs font-medium text-muted md:flex">
+            <a className="nav-link" href="#how-it-works">
+              How it works
+            </a>
+            <a className="nav-link" href="#start">
+              Start saving
+            </a>
+          </div>
+
+          <div className="flex items-center gap-2">
             <ThemeToggle />
-            <ClusterSelect />
             <WalletButton />
           </div>
-        </header>
+        </div>
+      </nav>
 
-        <main className="mx-auto max-w-6xl px-6">
-          {/* Hero */}
-          <section className="pt-6 pb-20 md:pt-8 md:pb-32">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="font-black tracking-tight text-foreground">
-                  <span className="block text-6xl md:text-7xl">Anchor</span>
-                  <span className="block text-7xl md:text-8xl">Vault</span>
-                </h1>
-              </div>
+      <main id="top" className="relative z-10">
+        <section className="hero-section mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-14 pt-28 sm:px-8 sm:pt-32 lg:px-12">
+          <div className="mb-7 flex items-center gap-3 sm:mb-8">
+            <span className="live-dot" />
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted sm:text-xs">
+              Goal-based saving, secured on Solana
+            </p>
+          </div>
 
-              <div className="flex max-w-2xl flex-col gap-3">
-                <p className="text-base leading-relaxed text-foreground/50">
-                  This program creates a personal vault for each user using a
-                  Program Derived Address (PDA). Connect your wallet, deposit
-                  SOL into your vault, and withdraw it anytime. Only you can
-                  access your funds.
-                </p>
-                <p className="text-sm leading-relaxed text-foreground/40">
-                  The vault is an{" "}
-                  <a
-                    href="https://www.anchor-lang.com/docs/introduction"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline underline-offset-2"
-                  >
-                    Anchor
-                  </a>{" "}
-                  program you can deploy to localnet or devnet and modify
-                  yourself. Check the README for setup instructions.
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  <a
-                    href="https://solana.com/docs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-foreground/70 underline underline-offset-4 transition-colors hover:text-foreground"
-                  >
-                    Solana docs
-                    <span aria-hidden="true">&rarr;</span>
-                  </a>
-                  <a
-                    href="https://www.anchor-lang.com/docs/introduction"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-foreground/70 underline underline-offset-4 transition-colors hover:text-foreground"
-                  >
-                    Anchor docs
-                    <span aria-hidden="true">&rarr;</span>
-                  </a>
-                  <a
-                    href="https://faucet.solana.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-foreground/70 underline underline-offset-4 transition-colors hover:text-foreground"
-                  >
-                    Faucet
-                    <span aria-hidden="true">&rarr;</span>
-                  </a>
-                </div>
-              </div>
+          <h1
+            className="hero-copy"
+            aria-label="Seek it. Save smarter. Own what once felt beyond reach."
+          >
+            <span className="hero-kicker">Seek it. Save smarter.</span>
+            <span className="hero-own" aria-hidden="true">
+              OWN
+            </span>
+            <span className="hero-tail">what once felt beyond reach.</span>
+          </h1>
+
+          <div className="mt-8 flex flex-col gap-8 sm:mt-10 lg:flex-row lg:items-end lg:justify-between">
+            <p className="max-w-md text-base leading-7 text-muted sm:text-lg">
+              Turn the thing you want into a transparent savings goal. Find the
+              exact listing, fund at your pace, and watch it get closer.
+            </p>
+
+            <div className="flex flex-col gap-3 min-[390px]:flex-row">
+              <a href="#start" className="hero-cta group">
+                Start a goal
+                <svg
+                  className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 12h14M13 6l6 6-6 6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+              <a href="#how-it-works" className="hero-cta-secondary">
+                See how it works
+              </a>
             </div>
-          </section>
+          </div>
 
-          {/* Template content */}
-          <div className="space-y-10 pb-20">
-            {/* Wallet Balance */}
-            {status === "connected" && address && (
-              <section className="relative w-full overflow-hidden rounded-2xl border border-border-low bg-card px-5 py-5">
-                <div
-                  className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-0"
-                  aria-hidden="true"
-                  style={{
-                    backgroundImage: `
-                      linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px)
-                    `,
-                    backgroundSize: "24px 24px",
-                    mask: "radial-gradient(ellipse 80% 80% at 50% 0%, black, transparent)",
-                    WebkitMask:
-                      "radial-gradient(ellipse 80% 80% at 50% 0%, black, transparent)",
-                  }}
-                />
-                <div
-                  className="pointer-events-none absolute inset-0 opacity-0 dark:opacity-100"
-                  aria-hidden="true"
-                  style={{
-                    backgroundImage: `
-                      linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)
-                    `,
-                    backgroundSize: "24px 24px",
-                    mask: "radial-gradient(ellipse 80% 80% at 50% 0%, black, transparent)",
-                    WebkitMask:
-                      "radial-gradient(ellipse 80% 80% at 50% 0%, black, transparent)",
-                  }}
-                />
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cream">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4 text-foreground/70"
-                      >
-                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-                        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-                        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-                      </svg>
-                    </div>
-                    <span className="text-sm font-medium">Wallet Balance</span>
-                    <button
-                      onClick={handleCopy}
-                      className="flex cursor-pointer items-center gap-1.5 font-mono text-xs text-muted transition hover:text-foreground"
-                    >
-                      {ellipsify(address, 4)}
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-3 w-3"
-                      >
-                        {copied ? (
-                          <path d="M20 6 9 17l-5-5" />
-                        ) : (
-                          <>
-                            <rect
-                              width="14"
-                              height="14"
-                              x="8"
-                              y="8"
-                              rx="2"
-                              ry="2"
-                            />
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                          </>
-                        )}
-                      </svg>
-                    </button>
+          <div
+            id="how-it-works"
+            className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:mt-16 sm:grid-cols-3"
+          >
+            {BENEFITS.map(([number, title, description]) => (
+              <div
+                key={number}
+                className="benefit-card bg-card/80 p-5 backdrop-blur-md sm:p-6"
+              >
+                <div className="mb-6 flex items-center justify-between">
+                  <span className="font-mono text-[10px] tracking-[0.2em] text-accent-blue">
+                    {number}
+                  </span>
+                  <span className="h-px w-8 bg-border" />
+                </div>
+                <h2 className="text-base font-semibold text-foreground">
+                  {title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  {description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section
+          id="start"
+          className="relative mx-auto max-w-5xl scroll-mt-24 px-4 pb-24 pt-12 sm:px-8 sm:pb-32 sm:pt-20"
+        >
+          <div className="mb-10 text-center sm:mb-14">
+            <p className="section-label text-accent-blue">Your next goal</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              Make wanting it actionable.
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-muted sm:text-base">
+              Connect your wallet, choose the exact item, and create a savings
+              path that stays yours.
+            </p>
+          </div>
+
+          <div className="app-frame overflow-visible rounded-[1.5rem] p-4 sm:rounded-[2rem] sm:p-6 lg:p-8">
+            <header className="mb-12 border-b border-border pb-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold tracking-[0.16em]">
+                    RIVESEEK / GOALS
+                  </p>
+                  <p className="mt-1.5 text-xs text-muted">
+                    Find it. Match it. Save for it.
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-start gap-3 sm:items-end">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ClusterSelect />
+                    <WalletButton />
                   </div>
-                  {cluster !== "mainnet" && (
-                    <button
-                      onClick={handleAirdrop}
-                      className="cursor-pointer rounded-lg border border-border-low px-3 py-1.5 text-xs font-medium transition hover:bg-cream"
-                    >
-                      Airdrop
-                    </button>
+
+                  {status === "connected" && address && (
+                    <div className="flex items-end gap-5 text-left sm:text-right">
+                      <p className="hidden font-mono text-[10px] text-muted md:block">
+                        {ellipsify(address, 4)}
+                      </p>
+                      <p className="font-mono text-xs font-semibold tabular-nums">
+                        {solDisplay}{" "}
+                        <span className="font-sans text-[9px] font-normal text-muted">
+                          SOL
+                        </span>
+                      </p>
+                      <p className="font-mono text-xs font-semibold tabular-nums">
+                        {usdcDisplay}{" "}
+                        <span className="font-sans text-[9px] font-normal text-muted">
+                          USDC
+                        </span>
+                      </p>
+                    </div>
                   )}
                 </div>
-                <p className="relative mt-4 font-mono text-4xl font-bold tabular-nums tracking-tight">
-                  {balance.lamports != null
-                    ? lamportsToSolString(balance.lamports)
-                    : "\u2014"}
-                  <span className="ml-1.5 text-lg font-normal text-muted">
-                    SOL
-                  </span>
-                </p>
-              </section>
-            )}
+              </div>
 
-            {/* Solana Authentication Status */}
-            <section className="relative w-full overflow-hidden rounded-2xl border border-border-low bg-card px-5 py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium">
-                    Solana Authentication (SIWS)
-                  </h3>
-                  <p className="mt-1 text-xs text-muted">
-                    Cryptographic sign-in verifying wallet key ownership without
-                    transferring funds or storing private keys.
-                  </p>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                <div className="flex items-center gap-2 text-xs">
+                  {status !== "connected" ? (
+                    <span className="text-muted">Connect wallet to begin</span>
+                  ) : isAuthenticated ? (
+                    <>
+                      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+                      <span className="text-success">Authenticated</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-warning" />
+                      <span className="text-muted">
+                        Wallet connected · not signed in
+                      </span>
+                    </>
+                  )}
+                  {authError && (
+                    <span className="text-destructive">{authError}</span>
+                  )}
                 </div>
-                {isAuthenticated ? (
-                  <button
-                    onClick={() => void signOut()}
-                    disabled={isAuthLoading}
-                    className="cursor-pointer rounded-lg border border-border-low px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
-                  >
-                    Sign Out
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await signIn();
-                        toast.success("Successfully authenticated!");
-                      } catch (err: unknown) {
-                        const msg =
-                          err instanceof Error ? err.message : "Sign-in failed";
-                        toast.error(msg);
-                      }
-                    }}
-                    disabled={status !== "connected" || isAuthLoading}
-                    className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    {isAuthLoading ? "Signing in..." : "Sign In with Solana"}
-                  </button>
-                )}
-              </div>
 
-              <div className="mt-4 border-t border-border-low pt-3 text-xs">
-                {status !== "connected" ? (
-                  <p className="text-muted">
-                    Connect your wallet first to request an authentication
-                    challenge.
-                  </p>
-                ) : isAuthenticated && user ? (
-                  <div className="space-y-1">
-                    <p className="text-emerald-500 font-medium">
-                      Authenticated Session Active
-                    </p>
-                    <p className="font-mono text-muted">
-                      Application User ID:{" "}
-                      <span className="text-foreground">{user.id}</span>
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <p className="text-amber-500 font-medium">
-                      Wallet Connected (Not Authenticated)
-                    </p>
-                    <p className="text-muted">
-                      Click &quot;Sign In with Solana&quot; to sign a
-                      cryptographic challenge and authorize your session.
-                    </p>
-                  </div>
-                )}
-                {authError && (
-                  <p className="mt-2 text-destructive">{authError}</p>
-                )}
+                <div className="flex items-center gap-2">
+                  {cluster !== "mainnet" && status === "connected" && (
+                    <button onClick={handleAirdrop} className="mini-action">
+                      Airdrop SOL
+                    </button>
+                  )}
+                  {status === "connected" &&
+                    (isAuthenticated ? (
+                      <button
+                        onClick={() => void signOut()}
+                        disabled={isAuthLoading}
+                        className="mini-action disabled:opacity-50"
+                      >
+                        Sign Out
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSignIn}
+                        disabled={isAuthLoading}
+                        className="mini-action mini-action-primary disabled:opacity-50"
+                      >
+                        {isAuthLoading
+                          ? "Signing in..."
+                          : "Sign In with Solana"}
+                      </button>
+                    ))}
+                </div>
               </div>
-            </section>
+            </header>
+
+            <div className="mx-auto max-w-2xl space-y-16 pb-5">
+              <TargetSection
+                selectedListing={selectedListing}
+                onClearTarget={() => setSelectedListing(null)}
+              />
+              <MarketplaceSearch
+                selectedListing={selectedListing}
+                onSelectListing={setSelectedListing}
+              />
+              <GoalCard
+                isAuthenticated={isAuthenticated}
+                selectedListing={selectedListing}
+                initialGoalPda={createdGoalPda}
+                walletUsdcBalance={usdcDisplay}
+                onGoalCreated={(pda) => {
+                  setCreatedGoalPda(pda);
+                  toast.success(`Goal created! PDA: ${pda.slice(0, 8)}...`);
+                }}
+                onBalanceChange={() => {
+                  balance.mutate();
+                  usdcBalance.mutate();
+                }}
+              />
+            </div>
           </div>
-        </main>
-      </div>
+        </section>
+      </main>
+
+      <footer className="relative z-10 border-t border-border px-5 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2026 RiveSeek. Built for deliberate ownership.</p>
+          <p className="font-mono uppercase tracking-[0.16em]">
+            Dev: SulavGairhe
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

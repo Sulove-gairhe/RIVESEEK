@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./components/providers";
 
@@ -14,9 +14,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const robotoMono = Roboto_Mono({
+  variable: "--font-roboto-mono",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Solana dApp Starter",
-  description: "A minimal Next.js starter powered by @solana/kit",
+  title: "RiveSeek — Save for what matters",
+  description:
+    "Find the exact thing you want and build toward it with a transparent, on-chain savings goal.",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg",
@@ -31,7 +39,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${inter.variable} ${geistMono.variable} ${robotoMono.variable} antialiased`}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>
